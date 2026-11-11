@@ -19,7 +19,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div role="dialog" aria-modal="true" aria-label="Simulated market update" className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between">
@@ -30,7 +30,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono font-bold tracking-wider text-amber-400 uppercase">
-                  Market Intelligence Update
+                  Simulated market update · No live feed
                 </span>
                 <span className="text-xs text-slate-500">·</span>
                 <span className="text-xs text-slate-300 font-mono">
@@ -44,6 +44,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
           </div>
           <button
             onClick={onClose}
+            aria-label="Close market update"
             className="text-slate-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -56,7 +57,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 rounded-lg bg-slate-50 border border-slate-200">
             <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Source &amp; Ingestion</span>
+              <span className="text-[11px] text-slate-400 font-medium block">Scenario source</span>
               <span className="font-semibold text-slate-900">{report.sourcePublisher}</span>
               <span className="text-[10px] text-slate-500 block italic">({report.sourceType})</span>
             </div>
@@ -66,7 +67,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
               <span className="text-[10px] text-slate-500 block">Portfolio-wide scan</span>
             </div>
             <div>
-              <span className="text-[11px] text-slate-400 font-medium block">Material Shock</span>
+              <span className="text-[11px] text-slate-400 font-medium block">Hypothetical change</span>
               <span className="font-semibold text-emerald-800">{report.marketChange}</span>
             </div>
           </div>

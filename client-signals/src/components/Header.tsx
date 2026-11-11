@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-slate-300">·</span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 text-slate-400" />
-                  07:30 EST Ingest
+                  07:30 EST Demo Snapshot
                 </span>
               </div>
             </div>
@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="hidden lg:flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700">
               <FileCheck2 className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Authorized CRM &amp; Research</span>
+              <span>Synthetic CRM &amp; Research</span>
             </div>
 
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700">
@@ -157,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
                         {activeSimulation === 'USTR_EXEMPTION' ? 'Revert USTR Exemption' : 'Simulate Event: USTR 90-Day Exemption'}
                       </span>
                       <span className="text-[11px] text-slate-500 block leading-tight">
-                        Exempts CNC robotic presses; reduces Atlas tariff urgency and elevates Apex to #1
+                        Hypothetical waiver; review Atlas customs eligibility and retained FX risk
                       </span>
                     </div>
                   </button>
@@ -176,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({
                         {activeSimulation === 'FED_RATE_HIKE' ? 'Revert Fed Rate Hike' : 'Simulate Event: Fed 25 bps Rate Hike'}
                       </span>
                       <span className="text-[11px] text-slate-500 block leading-tight">
-                        Surprises consensus (+25 bps to 5.50%); pushes Apex BioTech ($35M SOFR) to #1 Priority
+                        Hypothetical +25 bps; review conditional Apex SOFR sensitivity before Atlas
                       </span>
                     </div>
                   </button>
@@ -195,7 +195,7 @@ export const Header: React.FC<HeaderProps> = ({
                         Quiet Market Scenario (0 New Shocks)
                       </span>
                       <span className="text-[11px] text-slate-500 block leading-tight">
-                        No actionable shocks; proves system allows 0 recommendations without forcing 3
+                        No actionable signals in this scenario; creates no banker approvals
                       </span>
                     </div>
                   </button>

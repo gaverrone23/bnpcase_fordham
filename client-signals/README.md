@@ -10,11 +10,15 @@ View your app in AI Studio: https://ai.studio/apps/da942925-ddca-45e5-adb9-13983
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js 24
 
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+   `npm install --legacy-peer-deps --package-lock=false`
+2. No API key is needed for the deterministic demo. Chat and AI refresh are unavailable in the primary demo; their implementation is retained for later integration. The backend reads exported variables or `.env`, not `.env.local`.
 3. Run the app:
    `npm run dev`
+
+`npm run dev` starts Express and Vite together on port 3000. Select All to inspect each client, or use Demo Controls to simulate an event and Reset Demo to restore the seeded portfolio. All records and events are synthetic; nothing is sent to clients.
+
+Validation: `npm test`, `npm run lint` (type checking), `npm run build`. In the cloud browser-testing environment with Playwright and Chromium supplied, run `node tests/browser.cjs` against the running development server. Screenshots default to `/tmp/client-signals-screenshots`; `SCREENSHOT_DIR` overrides this.

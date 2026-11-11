@@ -2,7 +2,9 @@ import React from 'react';
 import { SignalOpportunity, ClientProfile, MarketDevelopment } from '../types';
 import { Clock, AlertTriangle, EyeOff, CheckCircle2, ChevronRight, Sparkles } from 'lucide-react';
 
-export type FilterTab = 'TOP_3_ACTIONABLE' | 'NEEDS_VERIFICATION' | 'SUPPRESSED' | 'ALL_PORTFOLIO';
+import { opportunitiesForTab, bankerAction } from '../domain/workflow';
+import type { FilterTab } from '../domain/workflow';
+export type { FilterTab } from '../domain/workflow';
 
 interface PriorityListProps {
   opportunities: SignalOpportunity[];
@@ -26,29 +28,8 @@ export const PriorityList: React.FC<PriorityListProps> = ({
   const getClient = (clientId: string) => clients.find((c) => c.id === clientId);
   const getEvent = (eventId: string) => events.find((e) => e.id === eventId);
 
-  // Filter based on active tab
-  const filteredOpportunities = opportunities.filter((opp) => {
-    if (activeTab === 'TOP_3_ACTIONABLE') {
-      return (
-        opp.status !== 'SUPPRESSED' && 
-        opp.status !== 'VERIFY_FIRST' && 
-        opp.priorityRank > 0 && 
-        opp.priorityRank <= 3
-      );
-    }
-    if (activeTab === 'NEEDS_VERIFICATION') {
-      return opp.status === 'VERIFY_FIRST';
-    }
-    if (activeTab === 'SUPPRESSED') {
-      return opp.status === 'SUPPRESSED';
-    }
-    return true; // ALL_PORTFOLIO
-  });
-
-  // Tab counts
-  const countTop3 = opportunities.filter(
-    (o) => o.status !== 'SUPPRESSED' && o.status !== 'VERIFY_FIRST' && o.priorityRank > 0 && o.priorityRank <= 3
-  ).length;
+  const filteredOpportunities = opportunitiesForTab(activeTab, opportunities);
+  const countTop3 = opportunitiesForTab('TOP_3_ACTIONABLE', opportunities).length;
   const countVerify = opportunities.filter((o) => o.status === 'VERIFY_FIRST').length;
   const countSuppressed = opportunities.filter((o) => o.status === 'SUPPRESSED').length;
   const countAll = opportunities.length;
@@ -66,7 +47,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 : activeTab === 'NEEDS_VERIFICATION'
                 ? 'Verification Required'
                 : activeTab === 'SUPPRESSED'
-                ? 'Suppressed Signals (Deterministic)'
+                ? 'Excluded from outreach'
                 : 'All Portfolio Accounts'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -75,7 +56,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 : activeTab === 'NEEDS_VERIFICATION'
                 ? 'Conflicting or stale notes withheld from active outreach'
                 : activeTab === 'SUPPRESSED'
-                ? 'Candidate matches excluded due to documented thesis invalidation'
+                ? 'Canceled plans do not justify outreach'
                 : 'Complete corporate coverage portfolio'}
             </p>
           </div>
@@ -144,6 +125,11 @@ export const PriorityList: React.FC<PriorityListProps> = ({
             return (
               <div
                 key={opp.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select ${client?.name}`}
+                aria-pressed={isSelected}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectOpportunity(opp.id); } }}
                 onClick={() => onSelectOpportunity(opp.id)}
                 className={`p-4 transition-all cursor-pointer text-left relative ${
                   isSelected
@@ -169,7 +155,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                     {opp.status === 'REVIEWED' && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded">
                         <CheckCircle2 className="w-3 h-3" />
-                        Review Scheduled
+                        Review Recorded
                       </span>
                     )}
                     {opp.status === 'DEFERRED' && (
@@ -215,9 +201,10 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                   </div>
                 </div>
 
+                <p className="text-xs font-bold text-emerald-900 mb-2">{bankerAction(opp).label}</p>
                 {/* Event Headline */}
                 <div className="text-xs text-slate-700 font-medium line-clamp-1 mb-2">
-                  <span className="text-slate-400 font-normal">Market Shock: </span>
+                  <span className="text-slate-400 font-normal">Synthetic event: </span>
                   {event?.title}
                 </div>
 
@@ -247,7 +234,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
       <div className="p-3 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 flex items-center justify-between">
         <span className="flex items-center gap-1">
           <Sparkles className="w-3 h-3 text-emerald-700" />
-          Deterministic gate active
+          Evidence rules applied
         </span>
         <span className="font-mono tabular-nums">5 Clients Evaluated</span>
       </div>

@@ -3,9 +3,7 @@ import {
   INITIAL_CLIENTS, 
   INITIAL_CRM_NOTES, 
   INITIAL_MARKET_DEVELOPMENTS, 
-  INITIAL_OPPORTUNITIES, 
-  SIMULATION_UPDATED_EVENT,
-  SIMULATION_FED_RATE_HIKE_EVENT
+  INITIAL_OPPORTUNITIES
 } from './data/fixtures';
 import { 
   ClientProfile, 
@@ -20,8 +18,8 @@ import { EvidenceInspector } from './components/EvidenceInspector';
 import { DismissModal } from './components/DismissModal';
 import { PolicyModal } from './components/PolicyModal';
 import { AskClientSignalsDrawer } from './components/AskClientSignalsDrawer';
-import { AskClientSignalsPanel } from './components/AskClientSignalsPanel';
 import { MarketIntelligenceModal } from './components/MarketIntelligenceModal';
+import { opportunitiesForTab, simulateMarket, type Simulation } from './domain/workflow';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
@@ -35,6 +33,7 @@ export default function App() {
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string>('OPP-001-ATLAS');
   const [activeTab, setActiveTab] = useState<FilterTab>('TOP_3_ACTIONABLE');
   const [activeSimulation, setActiveSimulation] = useState<'NONE' | 'USTR_EXEMPTION' | 'FED_RATE_HIKE' | 'QUIET_MARKET'>('NONE');
+  const [resetVersion, setResetVersion] = useState(0);
   const [marketReport, setMarketReport] = useState<MarketIntelligenceReport | null>(null);
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState<boolean>(false);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
@@ -49,21 +48,7 @@ export default function App() {
     }, 4500);
   };
 
-  // Helper: Get valid opportunities for a given queue tab
-  const getValidOpportunitiesForTab = (tab: FilterTab, oppsList: SignalOpportunity[]) => {
-    if (tab === 'TOP_3_ACTIONABLE') {
-      return oppsList.filter(
-        (o) => o.status !== 'SUPPRESSED' && o.status !== 'VERIFY_FIRST' && o.priorityRank > 0 && o.priorityRank <= 3
-      );
-    }
-    if (tab === 'NEEDS_VERIFICATION') {
-      return oppsList.filter((o) => o.status === 'VERIFY_FIRST');
-    }
-    if (tab === 'SUPPRESSED') {
-      return oppsList.filter((o) => o.status === 'SUPPRESSED');
-    }
-    return oppsList; // ALL_PORTFOLIO
-  };
+  const getValidOpportunitiesForTab = opportunitiesForTab;
 
   // Synchronized Queue Tab Switcher
   const handleTabChange = (newTab: FilterTab) => {
@@ -77,18 +62,13 @@ export default function App() {
   };
 
   // Counts for operational header
-  const countTop3 = opportunities.filter(
-    (o) => o.status !== 'SUPPRESSED' && o.status !== 'VERIFY_FIRST' && o.priorityRank > 0 && o.priorityRank <= 3
-  ).length;
+  const countTop3 = opportunitiesForTab('TOP_3_ACTIONABLE', opportunities).length;
   const countVerify = opportunities.filter((o) => o.status === 'VERIFY_FIRST').length;
   const countSuppressed = opportunities.filter((o) => o.status === 'SUPPRESSED').length;
 
   // Selected opportunity resolution
   const currentTabValidOpps = getValidOpportunitiesForTab(activeTab, opportunities);
-  const selectedOpportunity = currentTabValidOpps.find((o) => o.id === selectedOpportunityId) 
-    || currentTabValidOpps[0] 
-    || opportunities.find((o) => o.id === selectedOpportunityId) 
-    || opportunities[0];
+  const selectedOpportunity = currentTabValidOpps.find((o) => o.id === selectedOpportunityId) || currentTabValidOpps[0];
 
   const selectedClient = clients.find((c) => c.id === selectedOpportunity?.clientId);
   const selectedEvent = events.find((e) => e.id === selectedOpportunity?.eventId);
@@ -100,7 +80,7 @@ export default function App() {
   const handleMarkReviewed = (id: string) => {
     setOpportunities((prev) =>
       prev.map((opp) => {
-        if (opp.id !== id) return opp;
+        if (opp.id !== id || opp.status !== 'SURFACED') return opp;
         return {
           ...opp,
           status: 'REVIEWED',
@@ -111,7 +91,7 @@ export default function App() {
               timestamp: `Today ${new Date().toLocaleTimeString()}`,
               action: 'BANKER_ACCEPTED_REVIEW',
               actor: 'RM Gabriel V.',
-              note: 'Banker approved opportunity for client outreach. Scheduled preparation for forward collar structure.',
+              note: 'Banker recorded internal outreach review. No message sent, no product selected; client circumstances and suitability must be confirmed.',
             },
           ],
         };
@@ -124,7 +104,7 @@ export default function App() {
   const handleNeedsVerification = (id: string) => {
     setOpportunities((prev) => {
       const updated = prev.map((opp) => {
-        if (opp.id !== id) return opp;
+        if (opp.id !== id || opp.status !== 'SURFACED') return opp;
         return {
           ...opp,
           status: 'VERIFY_FIRST' as const,
@@ -155,7 +135,7 @@ export default function App() {
   const handleDefer = (id: string) => {
     setOpportunities((prev) =>
       prev.map((opp) => {
-        if (opp.id !== id) return opp;
+        if (opp.id !== id || opp.status !== 'SURFACED') return opp;
         return {
           ...opp,
           status: 'DEFERRED',
@@ -165,7 +145,7 @@ export default function App() {
               timestamp: `Today ${new Date().toLocaleTimeString()}`,
               action: 'BANKER_DEFERRED',
               actor: 'RM Gabriel V.',
-              note: 'Deferred review for 48 hours to monitor spot currency / yield curve developments.',
+              note: 'Deferred internal review for 48 hours. No outreach sent.',
             },
           ],
         };
@@ -179,7 +159,7 @@ export default function App() {
     if (!dismissModalOppId) return;
     setOpportunities((prev) => {
       const updated = prev.map((opp) => {
-        if (opp.id !== dismissModalOppId) return opp;
+        if (opp.id !== dismissModalOppId || opp.status !== 'SURFACED') return opp;
         return {
           ...opp,
           status: 'DISMISSED' as const,
@@ -207,203 +187,26 @@ export default function App() {
     showToast(`Opportunity dismissed with compliant audit note.`);
   };
 
-  // Simulation 1: Ingest USTR 90-Day Tariff Exemption
-  const handleSimulateUSTR = () => {
-    if (activeSimulation === 'USTR_EXEMPTION') {
-      handleResetDemo();
-      return;
-    }
-
-    setEvents((prev) => [SIMULATION_UPDATED_EVENT, ...prev.filter((e) => e.id !== SIMULATION_UPDATED_EVENT.id)]);
-    setActiveSimulation('USTR_EXEMPTION');
-
-    setOpportunities((prev) =>
-      prev.map((opp) => {
-        if (opp.id === 'OPP-001-ATLAS') {
-          return {
-            ...opp,
-            eventId: SIMULATION_UPDATED_EVENT.id,
-            whyNow: 'BREAKING: USTR issued emergency 90-day tariff waiver on German CNC machinery. While this saves Atlas ~8.5% in customs duty (~$1.23M USD), it establishes a rigid 90-day window to finalize shipments, dramatically amplifying the urgency to lock in the €12.3M forward hedge before the waiver expires.',
-            financialImpactHypothesis: 'Net combined variance: +$1,230,000 USD duty exemption offset by potential +$326,612 USD FX currency drag if unhedged. Immediate hedging locks in the full benefit.',
-            priorityTier: 'Tier 1 · Immediate Action',
-            auditTrail: [
-              ...opp.auditTrail,
-              {
-                timestamp: `Today ${new Date().toLocaleTimeString()}`,
-                action: 'MARKET_SHOCK_RE_EVALUATION',
-                actor: 'Deterministic Engine & Event Pipeline',
-                note: 'Ingested USTR Emergency Exemption (MKT-2026-999). Re-evaluated Atlas Manufacturing timeline; urgency elevated to critical 90-day execution window.',
-              },
-            ],
-          };
-        }
-        return opp;
-      })
-    );
-
-    // Generate comprehensive Market Intelligence Report
-    const report: MarketIntelligenceReport = {
-      id: 'REP-USTR-001',
-      headline: 'USTR Issues Emergency 90-Day Tariff Exemption on German CNC Machinery',
-      eventTimestamp: `Today ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} EST`,
-      sourceType: 'Public Regulatory Notice',
-      sourcePublisher: 'Federal Register / USTR Announcement',
-      marketChange: '90-day tariff exemption (estimated 8.5% customs duty savings)',
-      clientsEvaluated: 5,
-      clientsAffected: [
-        {
-          clientId: 'CL-101',
-          clientName: 'Atlas Manufacturing Co.',
-          previousRank: '#1 Priority',
-          newRank: '#1 Priority (Critical 90-Day Execution Window)',
-          impactSummary: 'Saves ~$1.23M in customs duty on €14.5M press order, but introduces strict 90-day arrival deadline. Increases urgency to execute €12.3M EUR forward hedge immediately.'
-        },
-        {
-          clientId: 'CL-104',
-          clientName: 'Harbor Components',
-          previousRank: 'Suppressed (Rule PR-SUPP-01)',
-          newRank: 'Suppressed (Rule PR-SUPP-01)',
-          impactSummary: 'Evaluated for USMCA cross-border equipment, but confirmed Monterrey cancellation in CRM-7702 keeps signal excluded from outreach.'
-        }
-      ],
-      rankingRationale: 'Atlas Manufacturing retains #1 priority because the exemption creates a non-negotiable 90-day commercial execution window. Failure to hedge EUR before delivery risks losing up to $326,612 in currency drag against the $1.23M duty savings.',
-      newStatusSummary: 'Atlas 90-day execution window active; hedge recommendation updated.'
-    };
-
-    setMarketReport(report);
-    setSelectedOpportunityId('OPP-001-ATLAS');
-    showToast('Simulated Market Shock: USTR CNC Exemption injected. Report generated.');
+  const runSimulation = (scenario: Simulation) => {
+    if (activeSimulation === scenario) { handleResetDemo(); return; }
+    const result = simulateMarket(scenario, opportunities);
+    setOpportunities(result.opportunities);
+    setEvents(result.event ? [result.event, ...INITIAL_MARKET_DEVELOPMENTS] : INITIAL_MARKET_DEVELOPMENTS);
+    setMarketReport(result.report);
+    setActiveSimulation(scenario);
+    setActiveTab('TOP_3_ACTIONABLE');
+    setSelectedOpportunityId(scenario === 'FED_RATE_HIKE' ? 'OPP-002-APEX' : 'OPP-001-ATLAS');
+    showToast(scenario === 'QUIET_MARKET'
+      ? 'Quiet-market scenario: no actionable recommendations. No banker approvals created.'
+      : 'Synthetic scenario applied. Review the evidence and assumptions; no live news feed.');
   };
-
-  // Simulation 2: Ingest Federal Reserve 25 bps Rate Increase
-  const handleSimulateFedHike = () => {
-    if (activeSimulation === 'FED_RATE_HIKE') {
-      handleResetDemo();
-      return;
-    }
-
-    setEvents((prev) => [SIMULATION_FED_RATE_HIKE_EVENT, ...prev.filter((e) => e.id !== SIMULATION_FED_RATE_HIKE_EVENT.id)]);
-    setActiveSimulation('FED_RATE_HIKE');
-
-    setOpportunities((prev) =>
-      prev.map((opp) => {
-        if (opp.id === 'OPP-002-APEX') {
-          return {
-            ...opp,
-            priorityRank: 1,
-            priorityTier: 'Tier 1 · Immediate Action',
-            eventId: SIMULATION_FED_RATE_HIKE_EVENT.id,
-            whyNow: 'BREAKING: FOMC unexpectedly increased Federal Funds Rate by 25 bps to 5.50%. This directly drives up 1M Term SOFR on Apex BioTech\'s $35,000,000 floating debt facility, adding +$87,500/yr in borrowing costs on top of the recent curve steepening (+24 bps).',
-            financialImpactHypothesis: 'Direct annual borrowing cost escalation: $35,000,000 × 0.49% (25 bps hike + 24 bps steepening) = +$171,500 USD/year in incremental debt service. Tightens interest coverage ratio to near-covenant threshold.',
-            auditTrail: [
-              ...opp.auditTrail,
-              {
-                timestamp: `Today ${new Date().toLocaleTimeString()}`,
-                action: 'MARKET_SHOCK_RE_EVALUATION',
-                actor: 'Deterministic Engine & Event Pipeline',
-                note: 'Ingested Fed 25 bps Rate Hike (MKT-2026-905). Apex BioTech promoted to #1 priority due to immediate floating debt exposure.',
-              },
-            ],
-          };
-        }
-        if (opp.id === 'OPP-001-ATLAS') {
-          return {
-            ...opp,
-            priorityRank: 2,
-            priorityTier: 'Tier 1 · Strategic Timing',
-            auditTrail: [
-              ...opp.auditTrail,
-              {
-                timestamp: `Today ${new Date().toLocaleTimeString()}`,
-                action: 'RANK_RE_ORDERED',
-                actor: 'Deterministic Engine',
-                note: 'Moved to #2 behind Apex BioTech following FOMC rate shock.',
-              },
-            ],
-          };
-        }
-        if (opp.id === 'OPP-003-MERIDIAN') {
-          return {
-            ...opp,
-            priorityRank: 3,
-            priorityTier: 'Tier 2 · Near-Term Review',
-          };
-        }
-        return opp;
-      })
-    );
-
-    // Generate comprehensive Market Intelligence Report for Fed Rate Hike
-    const report: MarketIntelligenceReport = {
-      id: 'REP-FED-002',
-      headline: 'Federal Reserve Surprise: FOMC Raises Policy Rate +25 bps to 5.50%',
-      eventTimestamp: `Today ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} EST`,
-      sourceType: 'Central Bank Policy Action',
-      sourcePublisher: 'Federal Reserve Board Press Release',
-      marketChange: '+25 bps Federal Funds Rate increase (SOFR benchmark escalation)',
-      clientsEvaluated: 5,
-      clientsAffected: [
-        {
-          clientId: 'CL-102',
-          clientName: 'Apex BioTech Corp.',
-          previousRank: '#2 Priority',
-          newRank: '#1 Priority (Elevated)',
-          impactSummary: 'Immediate +$87,500/yr debt service increase on $35M floating SOFR facility (total +$171,500/yr). Promoted to #1 for interest rate swap/collar proposal.'
-        },
-        {
-          clientId: 'CL-101',
-          clientName: 'Atlas Manufacturing Co.',
-          previousRank: '#1 Priority',
-          newRank: '#2 Priority',
-          impactSummary: 'Unhedged €12.3M currency exposure remains high (+$326k drag), but immediate floating debt escalation on Apex takes priority.'
-        },
-        {
-          clientId: 'CL-103',
-          clientName: 'Meridian Energy Logistics',
-          previousRank: '#3 Priority',
-          newRank: '#3 Priority',
-          impactSummary: 'WTI refining crack spread monitoring remains active; unaffected by short-term rate spike.'
-        }
-      ],
-      rankingRationale: 'The surprise +25 bps rate hike directly escalates cash interest obligations on unhedged floating debt. Apex BioTech carries $35M in floating SOFR debt with zero rate hedges (CRM-7901), creating immediate risk to debt service coverage. Apex displaces Atlas for #1 priority.',
-      newStatusSummary: 'Apex BioTech promoted to #1 priority; SOFR collar proposal ready for RM review.'
-    };
-
-    setMarketReport(report);
-    setSelectedOpportunityId('OPP-002-APEX');
-    showToast('Simulated Market Shock: Fed 25 bps Rate Hike. Apex BioTech promoted to #1 Priority.');
-  };
-
-  // Simulation 3: Quiet Market Scenario (0 New Shocks)
-  const handleSimulateQuietMarket = () => {
-    setActiveSimulation('QUIET_MARKET');
-    // Set all top-3 opportunities to REVIEWED or unranked, demonstrating the system supports 0 recommendations
-    setOpportunities((prev) =>
-      prev.map((opp) => {
-        if (opp.priorityRank > 0 && opp.priorityRank <= 3) {
-          return {
-            ...opp,
-            status: 'REVIEWED',
-            reviewedTimestamp: 'Prior Cycle',
-            auditTrail: [
-              ...opp.auditTrail,
-              {
-                timestamp: `Today ${new Date().toLocaleTimeString()}`,
-                action: 'QUIET_MARKET_EVALUATION',
-                actor: 'Deterministic Engine',
-                note: 'Quiet market scenario: no new material shocks. All earlier recommendations satisfied; queue presents 0 items without forcing recommendations.',
-              },
-            ],
-          };
-        }
-        return opp;
-      })
-    );
-    showToast('Quiet Market Scenario: Zero new shocks. Actionable queue now displays 0 recommendations.');
-  };
+  const handleSimulateUSTR = () => runSimulation('USTR_EXEMPTION');
+  const handleSimulateFedHike = () => runSimulation('FED_RATE_HIKE');
+  const handleSimulateQuietMarket = () => runSimulation('QUIET_MARKET');
 
   // Reset Demo to pristine fixtures
   const handleResetDemo = () => {
+    setResetVersion(version => version + 1);
     setClients(INITIAL_CLIENTS);
     setNotes(INITIAL_CRM_NOTES);
     setEvents(INITIAL_MARKET_DEVELOPMENTS);
@@ -412,6 +215,8 @@ export default function App() {
     setActiveTab('TOP_3_ACTIONABLE');
     setActiveSimulation('NONE');
     setMarketReport(null);
+    setDismissModalOppId(null);
+    setIsChatOpen(false);
     showToast('Demo state reset to initial morning portfolio briefing.');
   };
 
@@ -485,7 +290,6 @@ export default function App() {
         isSimulatedEventActive={activeSimulation !== 'NONE'}
         activeSimulation={activeSimulation}
         onOpenPolicyModal={() => setIsPolicyModalOpen(true)}
-        onOpenChat={() => setIsChatOpen(true)}
         reviewCounts={{
           pending: countTop3,
           verify: countVerify,
@@ -511,12 +315,17 @@ export default function App() {
         </div>
       )}
 
-      {/* 3. Main 3-Column Split Workbench */}
+      <div className="px-6 py-2 border-b border-slate-200 bg-white text-sm text-slate-600 flex flex-wrap justify-between gap-2">
+        <span><strong className="text-slate-900">Demo workspace</strong> · Synthetic CRM, market events and research · No live feeds</span>
+        <span>AI assistant unavailable · Evidence review and banker decisions work without chat</span>
+      </div>
+
+      {/* Evidence-first desktop workbench */}
       <main className="flex-1 w-full max-w-[1780px] mx-auto px-2 sm:px-4 lg:px-6 py-4 flex flex-col min-h-0">
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 rounded-xl border border-slate-200 overflow-hidden bg-white shadow-xs min-h-[750px]">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 rounded-xl border border-slate-200 overflow-hidden bg-white shadow-xs min-h-[620px]">
           
           {/* Column 1: Priority Feed (~27% / 3.25 cols on lg) */}
-          <div className="lg:col-span-3 xl:col-span-3 h-[780px] flex flex-col border-b lg:border-b-0">
+          <div className="lg:col-span-4 xl:col-span-4 h-[calc(100vh-180px)] min-h-[620px] flex flex-col border-b lg:border-b-0">
             <PriorityList
               opportunities={opportunities}
               clients={clients}
@@ -529,8 +338,9 @@ export default function App() {
           </div>
 
           {/* Column 2: Evidence & Decision Inspector (~43% / 5.25 cols on lg) */}
-          <div className="lg:col-span-5 xl:col-span-5 h-[780px] flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200">
-            <EvidenceInspector
+          <div className="lg:col-span-8 xl:col-span-8 h-[calc(100vh-180px)] min-h-[620px] flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200">
+            {selectedOpportunity ? <EvidenceInspector
+              key={`${resetVersion}-${selectedOpportunity.id}`}
               opportunity={selectedOpportunity}
               client={selectedClient}
               event={selectedEvent}
@@ -542,20 +352,9 @@ export default function App() {
               onOpenDismissModal={(id) => setDismissModalOppId(id)}
               onRunGeminiReEval={handleRunGeminiReEval}
               isEvaluatingAI={isEvaluatingAI}
-            />
+            /> : <div className="p-10 text-slate-600" role="status"><h2 className="text-lg font-semibold text-slate-900">No recommendations in this queue</h2><p className="mt-2">Choose All to inspect client records, or Reset Demo to restore the seeded portfolio.</p></div>}
           </div>
 
-          {/* Column 3: Ask Client Signals Embedded Always-Visible Panel (~30% / 4 cols on lg) */}
-          <div className="hidden lg:flex lg:col-span-4 xl:col-span-4 h-[780px] flex flex-col border-l border-slate-200">
-            <AskClientSignalsPanel
-              selectedClient={selectedClient}
-              selectedOpportunity={selectedOpportunity}
-              clients={clients}
-              opportunities={opportunities}
-              notes={notes}
-              events={events}
-            />
-          </div>
 
         </div>
       </main>
@@ -588,7 +387,7 @@ export default function App() {
             setSelectedOpportunityId(matchOpp.id);
             if (matchOpp.status === 'VERIFY_FIRST') setActiveTab('NEEDS_VERIFICATION');
             else if (matchOpp.status === 'SUPPRESSED') setActiveTab('SUPPRESSED');
-            else setActiveTab('TOP_3_ACTIONABLE');
+            else setActiveTab('ALL_PORTFOLIO');
           }
         }}
       />

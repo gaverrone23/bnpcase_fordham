@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { bankerAction, atlasUnpaidEUR, atlasRateChangePercent, atlasIncrementalUSD } from '../domain/workflow';
 import { 
   SignalOpportunity, 
   ClientProfile, 
@@ -68,8 +69,11 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
   // Filter notes relevant to this client
   const clientNotes = notes.filter((n) => n.clientId === client.id);
 
+  const action = bankerAction(opportunity);
+  const canAct = opportunity.status === 'SURFACED';
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50/50 overflow-y-auto">
+    <div data-testid="evidence-inspector" className="flex-1 flex flex-col h-full bg-slate-50/50 overflow-y-auto">
       
       {/* Top Banner: Client Header & Current Status */}
       <div className="bg-white border-b border-slate-200 p-5">
@@ -89,7 +93,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
               </span>
             </div>
 
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <h1 aria-label={client.name} className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <span>{client.name}</span>
               {client.ticker && (
                 <span className="text-xs font-mono font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
@@ -109,29 +113,27 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="text-right sm:border-r sm:border-slate-200 sm:pr-4">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
-                Workflow Posture
+                Review status
               </span>
               <span className="text-xs font-semibold text-slate-800">
                 {opportunity.status === 'SURFACED' && 'Pending RM Review'}
-                {opportunity.status === 'REVIEWED' && 'Outreach Scheduled'}
+                {opportunity.status === 'REVIEWED' && 'Internal Review Recorded'}
                 {opportunity.status === 'VERIFY_FIRST' && 'Verification Flagged'}
                 {opportunity.status === 'DEFERRED' && 'Deferred (48h)'}
                 {opportunity.status === 'DISMISSED' && 'Dismissed with Reason'}
-                {opportunity.status === 'SUPPRESSED' && 'Suppressed by Policy Gate'}
+                {opportunity.status === 'SUPPRESSED' && 'Excluded · Canceled plan'}
               </span>
             </div>
 
-            {/* Run Gemini AI Re-evaluation - Replaced jargon with 'Refresh analysis' */}
-            <button
-              onClick={() => onRunGeminiReEval(opportunity.id)}
-              disabled={isEvaluatingAI}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-              title="Execute live Gemini note-to-market synthesis"
-            >
-              <Sparkles className={`w-3.5 h-3.5 text-emerald-400 ${isEvaluatingAI ? 'animate-spin' : ''}`} />
-              <span>{isEvaluatingAI ? 'Refreshing...' : 'Refresh analysis'}</span>
-            </button>
+            <span className="text-xs text-slate-500">Evidence-based demo · AI refresh unavailable</span>
           </div>
+        </div>
+
+        <div className={`mt-4 p-4 rounded-lg border ${opportunity.status === 'VERIFY_FIRST' ? 'bg-amber-50 border-amber-200' : opportunity.status === 'SUPPRESSED' ? 'bg-slate-100 border-slate-300' : 'bg-emerald-50 border-emerald-200'}`} role="status">
+          <h2 className="text-base font-bold">{action.label}</h2>
+          <p className="text-sm leading-relaxed mt-1">{action.detail}</p>
+          {canAct && <button onClick={() => onMarkReviewed(opportunity.id)} className="mt-3 px-4 py-2 rounded bg-emerald-800 text-white text-sm font-semibold hover:bg-emerald-900">Mark for Outreach Review</button>}
+          <p className="text-xs text-slate-500 mt-2">Internal banker decision only · No message or transaction is sent</p>
         </div>
 
         {/* View Switcher Tabs */}
@@ -178,10 +180,10 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
                 <BadgeAlert className="w-4 h-4 text-slate-600" />
-                <span>Excluded Opportunities · Suppressed by Policy Gate PR-SUPP-01</span>
+                <span>SUPPRESS · Canceled Mexico-expansion thesis (CRM-7702)</span>
               </div>
               <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
-                Status: Inactive Exposure
+                Specific thesis excluded
               </span>
             </div>
 
@@ -209,19 +211,9 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <div className="p-3.5 bg-emerald-50/70 rounded-lg border border-emerald-200/80 text-xs space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-emerald-950">
                 <Compass className="w-4 h-4 text-emerald-700" />
-                <span>Conditional Banker Action Guidance (Alternative Angles):</span>
+                <span>Conditional next step · No new opportunity assumed</span>
               </div>
-              <ul className="space-y-1 text-slate-700 list-disc list-inside">
-                <li>
-                  <strong>Check Detroit Plant Automation Capex:</strong> Assess whether Harbor's $18M automated stamping line modernization in Michigan qualifies for domestic capex financing or USMCA equipment allowances.
-                </li>
-                <li>
-                  <strong>Monitor USMCA Domestic Rules of Origin:</strong> Inquire if local steel content can be certified above 75% to preempt future regional supply chain tariffs.
-                </li>
-                <li>
-                  <strong>Consult Automotive Coverage Desk:</strong> Review Harbor's Tier-1 supplier contracts with BNP Paribas automotive specialist (Sylvia Vance) before contacting CFO Martin Vogel.
-                </li>
-              </ul>
+              <p className="text-sm leading-relaxed">CRM-7702 (November 14, 2025) records the board’s cancellation of Project Nearshore and supersedes exploratory CRM-6910 (September 15, 2025). This supports suppressing that specific outreach thesis, not a claim of zero tariff exposure across Harbor’s business today. Check updated account records only if a distinct current exposure is documented.</p>
             </div>
           </div>
         )}
@@ -231,10 +223,12 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
           <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 space-y-2">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
               <AlertOctagon className="w-4 h-4 text-amber-700" />
-              <span>Conflicting Client Guidance Detected · Verification Required</span>
+              <span>{client.id === 'northstar-logistics' ? 'Conflicting client guidance · Verify current intent' : 'Banker verification required'}</span>
             </div>
-            <p className="text-xs leading-relaxed text-amber-950">
-              Earlier CRM records (<strong>CRM-6502</strong>) indicated interest in cross-border European treasury pooling. However, a recent note (<strong>CRM-7210</strong>) confirmed international capex was frozen following the departure of CFO Elena Rostova. Client Signals has separated this from actionable recommendations until the RM verifies current policy with interim finance lead Marcus Vance.
+            <p className="text-sm leading-relaxed text-amber-950">
+              {client.id === 'northstar-logistics'
+                ? 'CRM-6502 (June 12, 2026): former VP Alan Miller described Southeast Asian expansion and treasury needs. CRM-7210 (September 28, 2026): Finance Director Derek Kowalski reported a board pause on Asian capex. It is not established that the earlier plans remain active, whether the pause is temporary or permanent, or whether a treasury need survives it. The Mexico tariff event does not establish a direct connection to these Asian plans.'
+                : 'The banker has requested confirmation of this client’s current exposure and terms. This suggestion stays outside the actionable queue until verification; no outreach is approved.'}
             </p>
           </div>
         )}
@@ -246,7 +240,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                   <FileSearch className="w-4 h-4 text-emerald-800" />
-                  Why this matters: Client Situation &amp; Catalyst
+                  Client connection &amp; timing
                 </span>
                 <span className="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded font-mono">
                   {opportunity.priorityTier}
@@ -259,7 +253,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                   <h3 className="text-[17px] font-semibold text-slate-900 mb-2 leading-snug">
                     Why this client?
                   </h3>
-                  <p className="text-xs text-slate-700 leading-relaxed">
+                  <p className="text-sm text-slate-700 leading-relaxed">
                     {opportunity.whyThisClient}
                   </p>
                 </div>
@@ -268,22 +262,22 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                   <h3 className="text-[17px] font-semibold text-emerald-950 mb-2 leading-snug">
                     Why now?
                   </h3>
-                  <p className="text-xs text-slate-700 leading-relaxed">
+                  <p className="text-sm text-slate-700 leading-relaxed">
                     {opportunity.whyNow}
                   </p>
                 </div>
               </div>
 
               {/* Explicit Financial Breakdown for Atlas Manufacturing */}
-              {client.id === 'CL-101' && (
+              {client.id === 'atlas-mfg' && (
                 <div className="p-4 rounded-lg bg-blue-50/60 border border-blue-200 text-xs space-y-2.5">
                   <div className="flex items-center justify-between border-b border-blue-200/80 pb-1.5">
                     <span className="font-bold text-blue-950 flex items-center gap-1.5">
                       <Calculator className="w-4 h-4 text-blue-800" />
-                      Detailed Financial Exposure Calculation (Traceable Math)
+                      Atlas FX sensitivity · Synthetic scenario
                     </span>
                     <span className="font-mono text-[11px] bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded">
-                      Audited Exposure: +$326,612 USD
+                      Estimated incremental cost: +$326,612.50
                     </span>
                   </div>
 
@@ -296,32 +290,34 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                     <div className="p-2 bg-white rounded border border-blue-200">
                       <span className="text-[10px] text-slate-500 uppercase block">15% Deposit Paid</span>
                       <span className="font-bold font-mono text-emerald-700 text-xs">€2,175,000</span>
-                      <span className="text-[9px] text-slate-400 block">Settled @ 1.0820</span>
+                      <span className="text-[9px] text-slate-400 block">Paid deposit; not a hedge</span>
                     </div>
                     <div className="p-2 bg-white rounded border border-blue-200">
                       <span className="text-[10px] text-slate-500 uppercase block">85% Unhedged Balance</span>
-                      <span className="font-bold font-mono text-amber-700 text-xs">€12,325,000</span>
-                      <span className="text-[9px] text-slate-400 block">Payable upon Q3 delivery</span>
+                      <span className="font-bold font-mono text-amber-700 text-xs">€{atlasUnpaidEUR.toLocaleString('en-US')}</span>
+                      <span className="text-[9px] text-slate-400 block">Confirm exact payment date</span>
                     </div>
                     <div className="p-2 bg-white rounded border border-blue-200">
                       <span className="text-[10px] text-slate-500 uppercase block">Rate Shock (+265 pips)</span>
                       <span className="font-bold font-mono text-rose-700 text-xs">1.0820 ➔ 1.1085</span>
-                      <span className="text-[9px] text-slate-400 block">+1.82% EUR surge</span>
+                      <span className="text-[9px] text-slate-400 block">+{atlasRateChangePercent.toFixed(2)}% versus reference</span>
                     </div>
                   </div>
 
                   <div className="p-2.5 bg-white rounded border border-blue-200 text-slate-700 space-y-1">
                     <div className="flex items-center justify-between font-mono text-[11px]">
                       <span>Variance Formula:</span>
-                      <span className="font-bold text-slate-900">€12,325,000 × (1.1085 - 1.0820) = +$326,612.50 USD</span>
+                      <span className="font-bold text-slate-900">€12,325,000 × (1.1085 − 1.0820) = +${atlasIncrementalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
                     </div>
                     <div className="flex items-center justify-between font-mono text-[11px] text-rose-800">
-                      <span>Upside Stress Test (1.1150 ceiling / +330 pips):</span>
+                      <span>Hypothetical stress case (1.1150 / +330 pips):</span>
                       <span className="font-bold">€12,325,000 × (1.1150 - 1.0820) = +$406,725.00 USD</span>
                     </div>
                   </div>
                 </div>
               )}
+
+              <p className="text-xs text-slate-500">Figures are scenario sensitivities, not realized losses or executable prices. Confirm current balances, hedge coverage and timing before client contact.</p>
 
               {/* Estimated Exposure (Replaced Financial Exposure Hypothesis) */}
               <div className="p-3.5 rounded bg-amber-50/50 border border-amber-200 text-xs">
@@ -374,7 +370,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-2">
                 <Globe2 className="w-4 h-4 text-emerald-800" />
-                Validated External Market Shocks &amp; Permitted Internal Research
+                Source records · Synthetic market events &amp; research
               </span>
 
               {/* Public Market Event */}
@@ -382,13 +378,14 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                     <Globe2 className="w-3.5 h-3.5 text-slate-500" />
-                    Market Development: {event.publisher}
+                    Synthetic market record · {event.id}
                   </span>
                   <span className="font-mono text-slate-400 text-[11px]">
                     {event.publishedAt}
                   </span>
                 </div>
-                <h4 className="text-xs font-bold text-slate-900">
+                <p className="text-xs text-slate-500">{event.publisher} · Fictional scenario, not a verified publication</p>
+                <h4 className="text-sm font-bold text-slate-900">
                   {event.title}
                 </h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
@@ -407,7 +404,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-emerald-950 flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-                      {internalResearch.publisher}
+                      Simulated research · {internalResearch.id}
                     </span>
                     <span className="font-mono text-slate-400 text-[11px]">
                       {internalResearch.publishedAt}
@@ -433,14 +430,15 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-2">
                 <FileText className="w-4 h-4 text-emerald-800" />
-                Dated CRM Interaction Notes (Traceable Evidence)
+                Dated CRM evidence · Synthetic client records
               </span>
 
               <div className="space-y-3">
                 {clientNotes.map((note) => (
                   <div
                     key={note.id}
-                    className={`p-3.5 rounded border text-xs space-y-1.5 ${
+                    data-testid="crm-note" data-client-id={note.clientId}
+                    className={`p-3.5 rounded border text-sm space-y-1.5 ${
                       note.isSuperseded
                         ? 'bg-slate-100/70 border-slate-300 opacity-70'
                         : note.isConflicting
@@ -466,12 +464,12 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                         {/* Evidence Classification Tag */}
                         {note.classification === 'CONFIRMED_FACT' && (
                           <span className="font-semibold text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded text-[10px]">
-                            Confirmed Fact
+                            Documented in demo CRM
                           </span>
                         )}
                         {note.classification === 'EXTRACTED_CONTEXT' && (
                           <span className="font-medium text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded text-[10px]">
-                            Extracted Context
+                            Earlier reported context
                           </span>
                         )}
                         {note.classification === 'HYPOTHESIS_NEEDS_VERIFICATION' && (
@@ -593,7 +591,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
 
       {/* Sticky Banker Decision Bar (Banker in Control) */}
       <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4 shadow-lg z-20">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="max-w-4xl mx-auto flex flex-col items-start gap-3">
           
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <UserCheck className="w-4 h-4 text-emerald-800 shrink-0" />
@@ -602,12 +600,13 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2 w-full">
             {/* Mark for Outreach Review (Accept) */}
             <button
               onClick={() => onMarkReviewed(opportunity.id)}
               className="px-4 py-2 text-xs font-semibold text-white bg-emerald-800 hover:bg-emerald-900 rounded transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-              title="Schedule structured outreach preparation"
+              disabled={!canAct}
+              title={canAct ? "Record internal review; no outreach sent" : "Unavailable: verify evidence or retain suppression before outreach"}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Mark for Outreach Review</span>
@@ -617,6 +616,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <button
               onClick={() => onNeedsVerification(opportunity.id)}
               className="px-3 py-2 text-xs font-medium text-amber-900 bg-amber-100 hover:bg-amber-200 rounded transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              disabled={!canAct}
               title="Flag questions or request clarification before outreach"
             >
               <HelpCircle className="w-3.5 h-3.5 text-amber-800" />
@@ -627,6 +627,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <button
               onClick={() => onDefer(opportunity.id)}
               className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              disabled={!canAct}
               title="Postpone triage for 48 hours"
             >
               <Clock className="w-3.5 h-3.5 text-slate-500" />
@@ -637,6 +638,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <button
               onClick={() => onOpenDismissModal(opportunity.id)}
               className="px-3 py-2 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              disabled={!canAct}
               title="Dismiss recommendation and record audit reason"
             >
               <XCircle className="w-3.5 h-3.5 text-rose-600" />
