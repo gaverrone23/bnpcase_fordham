@@ -97,6 +97,13 @@ fs.mkdirSync(output, {recursive: true});
     await inspector().getByRole('button', {name: /Client Profile/}).click();
     await reset(); assert.deepEqual(await snapshot(), baseline);
     console.log('PASS scenario switching, zero-item queue, internal review/defer/dismiss/verify, decision preservation and reset');
+    for (const [index, name] of ['Atlas Manufacturing Co.', 'Apex BioTech Instruments', 'Meridian Logistics & Freight', 'Northstar Regional Distribution', 'Harbor Automotive Components'].entries()) {
+      await reset(); await scenario('Simulate Event: Fed 25 bps Rate Hike');
+      await page.getByRole('dialog', {name:'Simulated market update'}).getByRole('button', {name:'Inspect Evidence',exact:true}).nth(index).click();
+      await inspector().getByRole('heading', {level:1,name,exact:true}).waitFor();
+    }
+    await reset(); assert.deepEqual(await snapshot(), baseline);
+    console.log('PASS all five simulation-report evidence links select their named clients');
     assert.deepEqual(apiRequests, []); assert.deepEqual(errors, []);
     console.log('PASS no fake AI requests, no browser runtime errors; screenshots:', output);
   } finally { await browser.close(); }
