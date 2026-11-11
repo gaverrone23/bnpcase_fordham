@@ -1,0 +1,6 @@
+{
+  "name": "Client Signals",
+  "description": "BNP Paribas Client Signals: AI-assisted market event prioritization and evidence workbench for corporate banking Relationship Managers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
