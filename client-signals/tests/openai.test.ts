@@ -15,6 +15,7 @@ import {
   MAX_OUTPUT_TOKENS,
   MAX_WEB_CALLS,
   type ResponsesTransport,
+  CopilotError,
 } from "../server/research";
 import { DailyBudget, AttemptLimiter } from "../server/access";
 import { createApiApp } from "../server/app";
@@ -471,6 +472,52 @@ test("HTTP auth, origin, CSRF, signed-out and rate-limit checks prevent unauthor
       assert.ok(!JSON.stringify(body).includes("Forged history"));
       return response();
     },
+  );
+});
+test("stream endpoint emits progress and a real result envelope without buffering for an entire model call", async () => {
+  await testServer(
+    async (base, origin) => {
+      const headers = { "Content-Type": "application/json", Origin: origin, "X-Client-Signals": "copilot" };
+      const login = await fetch(base + "/api/copilot/session", {
+        method: "POST", headers,
+        body: JSON.stringify({ code: "test-access-code-not-a-real-secret" }),
+      });
+      assert.equal(login.status, 200);
+      const cookie = login.headers.get("set-cookie")!.split(";")[0];
+      const res = await fetch(base + "/api/chat/stream", {
+        method: "POST", headers: { ...headers, Cookie: cookie },
+        body: JSON.stringify({ message: "Explain price ceilings" }),
+      });
+      assert.equal(res.status, 200);
+      assert.match(res.headers.get("content-type") || "", /application\/x-ndjson/);
+      const lines = (await res.text()).trim().split("\n").map((x) => JSON.parse(x));
+      assert.equal(lines[0].type, "status");
+      assert.equal(lines.at(-1).type, "result");
+      assert.equal(lines.at(-1).data.provider, "openai");
+      assert.equal(lines.at(-1).data.reply.responseId, "resp_test_fixture_not_live");
+    },
+    async () => response(),
+  );
+});
+test("stream endpoint emits sanitized model errors as JSON lines", async () => {
+  await testServer(
+    async (base, origin) => {
+      const headers = { "Content-Type": "application/json", Origin: origin, "X-Client-Signals": "copilot" };
+      const login = await fetch(base + "/api/copilot/session", {
+        method: "POST", headers,
+        body: JSON.stringify({ code: "test-access-code-not-a-real-secret" }),
+      });
+      const cookie = login.headers.get("set-cookie")!.split(";")[0];
+      const res = await fetch(base + "/api/chat/stream", {
+        method: "POST", headers: { ...headers, Cookie: cookie },
+        body: JSON.stringify({ message: "Research Federal Reserve", research: true }),
+      });
+      assert.equal(res.status, 200);
+      const lines = (await res.text()).trim().split("\n").map((x) => JSON.parse(x));
+      assert.equal(lines.at(-1).type, "error");
+      assert.ok(!JSON.stringify(lines).includes("mock-secret"));
+    },
+    async () => { throw new CopilotError(503, "Provider unavailable."); },
   );
 });
 test("missing configuration never invokes a paid transport or fabricates a response", async () => {
