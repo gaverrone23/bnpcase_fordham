@@ -26,6 +26,7 @@ export interface Session {
   history: Turn[];
   sources: WebSource[];
   guest?: boolean;
+  demoPersonaId?: string;
 }
 export class AttemptLimiter {
   private buckets = new Map<string, { start: number; count: number }>();

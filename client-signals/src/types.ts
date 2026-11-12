@@ -35,6 +35,7 @@ export interface ClientProfile {
     email: string;
   };
   keySensitivities: string[];
+  monitorReason?: string;
 }
 
 export interface CRMNote {

@@ -13,6 +13,7 @@ interface PriorityListProps {
   events: MarketDevelopment[];
   selectedOpportunityId: string;
   simulation: Simulation;
+  coveredClientsCount?: number;
   onSelectOpportunity: (id: string) => void;
   activeTab: FilterTab;
   onTabChange: (tab: FilterTab) => void;
@@ -40,6 +41,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
   events,
   selectedOpportunityId,
   simulation,
+  coveredClientsCount,
   onSelectOpportunity,
   activeTab,
   onTabChange,
@@ -67,7 +69,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 ? 'Verification Required'
                 : activeTab === 'SUPPRESSED'
                 ? 'Hold off · Canceled thesis'
-                : 'All Portfolio Accounts'}
+                : 'All Matched Signals'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {activeTab === 'TOP_3_ACTIONABLE'
@@ -76,7 +78,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 ? 'Sources or client notes need confirmation before outreach'
                 : activeTab === 'SUPPRESSED'
                 ? 'Documented cancellations prevent inappropriate outreach'
-                : 'Complete corporate coverage portfolio'}
+                : 'Evidence-backed cases only · browse all covered accounts in My Portfolio'}
             </p>
           </div>
         </div>
@@ -270,7 +272,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
           <Sparkles className="w-3 h-3 text-emerald-700" />
           Evidence rules applied
         </span>
-        <span className="font-mono tabular-nums text-right leading-tight">{countAll} clients · {countTop3} surfaced · {countVerify} verify · {countSuppressed} hold off
+        <span className="font-mono tabular-nums text-right leading-tight">{coveredClientsCount ?? clients.length} covered · {countAll} matched · {Math.max(0,(coveredClientsCount ?? clients.length)-countAll)} monitoring · {countTop3} act · {countVerify} verify · {countSuppressed} hold off
           <span className="block text-slate-400">Information-barrier gate: simulated demo audit</span>
         </span>
       </div>

@@ -15,6 +15,8 @@ interface Props {
   onUndo: (id: string) => void;
   onContinue: () => void;
   onReview: (id: string) => void;
+  canEdit?: boolean;
+  canComment?: boolean;
 }
 export function ClientActionPlan({
   opportunity,
@@ -24,6 +26,8 @@ export function ClientActionPlan({
   onUndo,
   onContinue,
   onReview,
+  canEdit = true,
+  canComment = true,
 }: Props) {
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
@@ -54,7 +58,7 @@ export function ClientActionPlan({
       </div>
       <p className="text-sm leading-relaxed text-slate-700">{action.detail}</p>
       <div className="flex flex-wrap gap-3">
-        {opportunity.status === "SURFACED" && opportunity.priorityRank > 0 && (
+        {canEdit && opportunity.status === "SURFACED" && opportunity.priorityRank > 0 && (
           <button
             onClick={() => onReview(opportunity.id)}
             className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white"
@@ -62,7 +66,7 @@ export function ClientActionPlan({
             Mark for Outreach Review
           </button>
         )}
-        {canRestoreDecision(opportunity) && (
+        {canEdit && canRestoreDecision(opportunity) && (
           <button
             onClick={() => onUndo(opportunity.id)}
             className="rounded-lg border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-900"
@@ -105,10 +109,11 @@ export function ClientActionPlan({
               ))}
             </ul>
           </details>
+          {!canComment && <p className="text-xs text-amber-800">Read-only demo role: comments are not permitted.</p>}
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!note.trim()) return;
+              if (!canComment || !note.trim()) return;
               onAddTask(opportunity.clientId, note.trim());
               setNote("");
               setSaved(true);
@@ -127,6 +132,7 @@ export function ClientActionPlan({
             <textarea
               id={`follow-up-${opportunity.id}`}
               value={note}
+              disabled={!canComment}
               maxLength={2000}
               onChange={(e) => {
                 setNote(e.target.value);
@@ -138,7 +144,7 @@ export function ClientActionPlan({
             />
             <div className="mt-2 flex items-center gap-3">
               <button
-                disabled={!note.trim()}
+                disabled={!canComment || !note.trim()}
                 className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white"
               >
                 Save internal follow-up
@@ -160,6 +166,7 @@ export function ClientActionPlan({
                   <input
                     type="checkbox"
                     checked={task.completed}
+                    disabled={!canEdit}
                     onChange={() => onToggleTask(task.id)}
                     aria-label={`Complete follow-up: ${task.text}`}
                   />

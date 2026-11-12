@@ -20,6 +20,7 @@ import { MarketIntelligenceModal } from "./components/MarketIntelligenceModal";
 import { MyPortfolio } from "./components/MyPortfolio";
 import { ClientActionPlan } from "./components/ClientActionPlan";
 import { applySignalEvidenceGate } from "./domain/signalEvidence";
+import { DEMO_PERSONAS, canDemoPermission, scopeDemoClients, type DemoPersonaId } from "./domain/demoAccess";
 import {
   opportunitiesForTab,
   simulateMarket,
@@ -53,6 +54,12 @@ function readTasks(): InternalFollowUp[] {
 }
 
 export default function App() {
+  const [personaId, setPersonaId] = useState<DemoPersonaId>("rm-primary");
+  const persona = DEMO_PERSONAS[personaId];
+  const visibleClients = scopeDemoClients(personaId);
+  const visibleIds = new Set(visibleClients.map(c => c.id));
+  const canEdit = canDemoPermission(personaId, "edit");
+  const canComment = canDemoPermission(personaId, "comment");
   const [events, setEvents] = useState<MarketDevelopment[]>(
     INITIAL_MARKET_DEVELOPMENTS,
   );
@@ -87,36 +94,37 @@ export default function App() {
     }
   }, [tasks]);
 
-  const validOpportunities = opportunitiesForTab(activeTab, opportunities);
+  const visibleOpportunities = opportunities.filter(o => visibleIds.has(o.clientId));
+  const validOpportunities = opportunitiesForTab(activeTab, visibleOpportunities);
   const signalOpportunity =
     validOpportunities.find((o) => o.id === selectedOpportunityId) ||
     validOpportunities[0];
   const selectedOpportunity =
     primaryView === "PORTFOLIO"
-      ? opportunities.find((o) => o.clientId === portfolioClientId)
+      ? visibleOpportunities.find((o) => o.clientId === portfolioClientId)
       : signalOpportunity;
-  const selectedClient = INITIAL_CLIENTS.find(
-    (c) => c.id === selectedOpportunity?.clientId,
-  );
+  const selectedClient = primaryView === "PORTFOLIO"
+    ? visibleClients.find(c => c.id === portfolioClientId) || visibleClients[0]
+    : visibleClients.find(c => c.id === selectedOpportunity?.clientId);
   const countTop3 = opportunitiesForTab(
     "TOP_3_ACTIONABLE",
-    opportunities,
+    visibleOpportunities,
   ).length;
-  const countVerify = opportunities.filter(
+  const countVerify = visibleOpportunities.filter(
     (o) => o.status === "VERIFY_FIRST",
   ).length;
-  const countSuppressed = opportunities.filter(
+  const countSuppressed = visibleOpportunities.filter(
     (o) => o.status === "SUPPRESSED",
   ).length;
 
   const changeTab = (tab: FilterTab) => {
     setActiveTab(tab);
-    const valid = opportunitiesForTab(tab, opportunities);
+    const valid = opportunitiesForTab(tab, visibleOpportunities);
     if (!valid.some((o) => o.id === selectedOpportunityId) && valid[0])
       setSelectedOpportunityId(valid[0].id);
   };
   const openSignals = (clientId: string) => {
-    const opp = opportunities.find((o) => o.clientId === clientId);
+    const opp = visibleOpportunities.find((o) => o.clientId === clientId);
     if (!opp) return;
     setSelectedOpportunityId(opp.id);
     setActiveTab(
@@ -129,13 +137,13 @@ export default function App() {
     setPrimaryView("SIGNALS");
   };
   const openPortfolio = (clientId?: string) => {
-    setPortfolioClientId(clientId || selectedClient?.id || portfolioClientId);
+    setPortfolioClientId(visibleIds.has(clientId || "") ? clientId! : selectedClient?.id || visibleClients[0]?.id || "atlas-mfg");
     setPrimaryView("PORTFOLIO");
   };
   const continuePriorities = () => {
     setPrimaryView("SIGNALS");
     setActiveTab("TOP_3_ACTIONABLE");
-    const first = opportunitiesForTab("TOP_3_ACTIONABLE", opportunities)[0];
+    const first = opportunitiesForTab("TOP_3_ACTIONABLE", visibleOpportunities)[0];
     if (first) setSelectedOpportunityId(first.id);
     setNotice("");
   };
@@ -144,8 +152,8 @@ export default function App() {
     status: SignalOpportunity["status"],
     reason?: string,
   ) => {
-    const opp = opportunities.find((o) => o.id === id);
-    if (!opp || opp.status !== "SURFACED" || opp.priorityRank === 0) return;
+    const opp = visibleOpportunities.find((o) => o.id === id);
+    if (!canEdit || !opp || opp.status !== "SURFACED" || opp.priorityRank === 0) return;
     const client = INITIAL_CLIENTS.find((c) => c.id === opp.clientId)!;
     setOpportunities((prev) =>
       prev.map((o) =>
@@ -183,6 +191,7 @@ export default function App() {
     );
   };
   const undoDecision = (id: string) => {
+    if (!canEdit || !visibleOpportunities.some(o => o.id === id)) return;
     setOpportunities((prev) =>
       applySignalEvidenceGate(
         prev.map((o) => (o.id === id ? restoreDecision(o) : o)),
@@ -194,7 +203,8 @@ export default function App() {
       "Banker decision undone. Existing evidence and simulation are retained; no message was sent.",
     );
   };
-  const addTask = (clientId: string, text: string) =>
+  const addTask = (clientId: string, text: string) => {
+    if (!canComment || !visibleIds.has(clientId)) return;
     setTasks((prev) =>
       [
         ...prev,
@@ -207,10 +217,13 @@ export default function App() {
         },
       ].slice(-200),
     );
-  const toggleTask = (id: string) =>
+  };
+  const toggleTask = (id: string) => {
+    if (!canEdit || !tasks.some(t => t.id === id && visibleIds.has(t.clientId))) return;
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
     );
+  };
   const runSimulation = (scenario: Simulation) => {
     const next = scenario === activeSimulation ? "NONE" : scenario;
     const result = simulateMarket(next, opportunities);
@@ -238,8 +251,8 @@ export default function App() {
     setEvents(INITIAL_MARKET_DEVELOPMENTS);
     setOpportunities(simulateMarket("NONE", INITIAL_OPPORTUNITIES).opportunities);
     setPrimaryView("SIGNALS");
-    setPortfolioClientId("atlas-mfg");
-    setSelectedOpportunityId("OPP-001-ATLAS");
+    setPortfolioClientId(visibleClients[0]?.id || "atlas-mfg");
+    setSelectedOpportunityId(visibleOpportunities[0]?.id || "");
     setActiveTab("TOP_3_ACTIONABLE");
     setActiveSimulation("NONE");
     setMarketReport(null);
@@ -252,6 +265,8 @@ export default function App() {
   };
   const planProps = {
     tasks: tasks.filter((t) => t.clientId === selectedClient?.id),
+    canEdit,
+    canComment,
     onAddTask: addTask,
     onToggleTask: toggleTask,
     onUndo: undoDecision,
@@ -266,6 +281,7 @@ export default function App() {
         onSimulateFedHike={() => runSimulation("FED_RATE_HIKE")}
         onSimulateQuietMarket={() => runSimulation("QUIET_MARKET")}
         onResetDemo={resetDemo}
+        clientCount={visibleClients.length}
         isSimulatedEventActive={activeSimulation !== "NONE"}
         activeSimulation={activeSimulation}
         onOpenPolicyModal={() => setIsPolicyModalOpen(true)}
@@ -291,8 +307,16 @@ export default function App() {
           <button
             aria-current={primaryView === "SIGNALS" ? "page" : undefined}
             onClick={() => {
-              if (primaryView === "PORTFOLIO") openSignals(portfolioClientId);
-              else setPrimaryView("SIGNALS");
+              if (primaryView === "PORTFOLIO") {
+                const hasSignal = visibleOpportunities.some(o => o.clientId === portfolioClientId);
+                if (hasSignal) openSignals(portfolioClientId);
+                else {
+                  const first = opportunitiesForTab("TOP_3_ACTIONABLE", visibleOpportunities)[0] || visibleOpportunities[0];
+                  setSelectedOpportunityId(first?.id || "");
+                  setActiveTab("ALL_PORTFOLIO");
+                  setPrimaryView("SIGNALS");
+                }
+              } else setPrimaryView("SIGNALS");
             }}
             className={`py-4 text-sm font-semibold border-b-2 ${primaryView === "SIGNALS" ? "border-emerald-700 text-emerald-900" : "border-transparent text-slate-500"}`}
           >
@@ -300,8 +324,33 @@ export default function App() {
           </button>
         </nav>
       </div>
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 text-xs text-slate-500 flex flex-wrap justify-between gap-2">
-        <span>Synthetic CRM, market events &amp; research · No live feeds</span>
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white">
+        <label className="text-xs font-semibold text-slate-700">Demo persona · simulated access
+          <select aria-label="Select demo persona" value={personaId}
+            onChange={e => {
+              const id = e.target.value as DemoPersonaId;
+              setPersonaId(id);
+              const first = scopeDemoClients(id)[0];
+              const visible = new Set(scopeDemoClients(id).map(c => c.id));
+              setPortfolioClientId(first.id);
+              setSelectedOpportunityId(opportunities.find(o => visible.has(o.clientId))?.id || "");
+              setPrimaryView("PORTFOLIO");
+              setActiveTab("ALL_PORTFOLIO");
+              setIsChatOpen(false);
+              setNotice("Demo persona switched. Client visibility and editable actions reflect the simulated role; this is not bank authentication.");
+            }}
+            className="ml-2 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm">
+            {Object.entries(DEMO_PERSONAS).map(([id, value]) => (
+              <option key={id} value={id}>{value.name} · {value.position} (Level {value.level})</option>
+            ))}
+          </select>
+        </label>
+        <span className="text-xs text-slate-600">{visibleClients.length} visible of 25 synthetic accounts · Permissions: {persona.permissions.join(" / ")}</span>
+        <span className="text-xs font-medium text-amber-800">Illustrative entitlements, not secure login</span>
+      </div>
+      <div className="max-w-[1552px] mx-4 xl:mx-auto my-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex flex-wrap justify-between gap-2">
+        <span><strong>Demo data:</strong> clients, CRM records, signals and research are synthetic. <strong>Ask AI:</strong> can retrieve public web research on demand; it does not automatically refresh rankings.</span>
+        <button onClick={() => setIsPolicyModalOpen(true)} className="font-semibold underline text-emerald-900">Privacy &amp; governance details</button>
         <span>
           Decisions: this session · Follow-ups: this browser · No external
           actions
@@ -344,9 +393,9 @@ export default function App() {
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 pb-8">
         {primaryView === "PORTFOLIO" ? (
           <MyPortfolio
-            clients={INITIAL_CLIENTS}
-            notes={INITIAL_CRM_NOTES}
-            opportunities={opportunities}
+            clients={visibleClients}
+            notes={INITIAL_CRM_NOTES.filter(n => visibleIds.has(n.clientId))}
+            opportunities={visibleOpportunities}
             clientId={portfolioClientId}
             onSelectClient={setPortfolioClientId}
             onOpenSignals={openSignals}
@@ -374,8 +423,9 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-12 rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
               <div className="lg:col-span-4 min-h-[380px] lg:h-[calc(100vh-270px)] lg:min-h-[560px]">
                 <PriorityList
-                  opportunities={opportunities}
-                  clients={INITIAL_CLIENTS}
+                  opportunities={visibleOpportunities}
+                  clients={visibleClients}
+                  coveredClientsCount={visibleClients.length}
                   events={events}
                   selectedOpportunityId={signalOpportunity?.id || ""}
                   simulation={activeSimulation}
@@ -396,13 +446,14 @@ export default function App() {
                     internalResearch={events.find(
                       (e) => e.id === signalOpportunity.internalResearchId,
                     )}
-                    notes={INITIAL_CRM_NOTES}
+                    notes={INITIAL_CRM_NOTES.filter(n => visibleIds.has(n.clientId))}
+                    canEdit={canEdit}
                     onMarkReviewed={(id) => recordDecision(id, "REVIEWED")}
                     onNeedsVerification={(id) =>
                       recordDecision(id, "VERIFY_FIRST")
                     }
                     onDefer={(id) => recordDecision(id, "DEFERRED")}
-                    onOpenDismissModal={setDismissModalOppId}
+                    onOpenDismissModal={(id) => { if (canEdit) setDismissModalOppId(id); }}
                     actionPlan={
                       <ClientActionPlan
                         opportunity={signalOpportunity}
@@ -489,19 +540,27 @@ export default function App() {
         onClose={() => setIsPolicyModalOpen(false)}
       />
       <MarketIntelligenceModal
-        report={marketReport}
+        report={marketReport && { ...marketReport,
+          clientsEvaluated: visibleOpportunities.length,
+          clientsAffected: marketReport.clientsAffected.filter(x => visibleIds.has(x.clientId)),
+          rankingRationale: personaId === "rm-secondary"
+            ? "This demo report displays only client opportunities included in the selected persona's illustrative coverage. Ranking is qualitative and requires banker review."
+            : marketReport.rankingRationale,
+        }}
         isOpen={Boolean(marketReport)}
         onClose={() => setMarketReport(null)}
         onInspectClient={openSignals}
       />
       <AskClientSignalsDrawer
+        key={personaId}
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         selectedClient={selectedClient}
         selectedOpportunity={selectedOpportunity}
-        clients={INITIAL_CLIENTS}
-        opportunities={opportunities}
-        notes={INITIAL_CRM_NOTES}
+        clients={visibleClients}
+        opportunities={visibleOpportunities}
+        notes={INITIAL_CRM_NOTES.filter(n => visibleIds.has(n.clientId))}
+        personaId={personaId}
         events={events}
         simulation={activeSimulation}
       />
