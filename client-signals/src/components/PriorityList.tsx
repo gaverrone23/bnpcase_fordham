@@ -69,7 +69,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 ? 'Verification Required'
                 : activeTab === 'SUPPRESSED'
                 ? 'Hold off · Canceled thesis'
-                : 'All Portfolio Accounts'}
+                : 'All Matched Signals'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {activeTab === 'TOP_3_ACTIONABLE'
@@ -78,7 +78,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 ? 'Sources or client notes need confirmation before outreach'
                 : activeTab === 'SUPPRESSED'
                 ? 'Documented cancellations prevent inappropriate outreach'
-                : 'Complete corporate coverage portfolio'}
+                : 'Evidence-backed cases only · browse all covered accounts in My Portfolio'}
             </p>
           </div>
         </div>
