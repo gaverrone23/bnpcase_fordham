@@ -102,8 +102,12 @@ export function createApiApp(options: {
     session.sources = [];
     res.json({ success: true });
   });
-  app.post("/api/chat", async (req, res, next) => {
+  // Stream heartbeats to keep longer evidence-backed web research requests
+  // alive through hosting proxies. The existing JSON endpoint remains available.
+  app.post(["/api/chat", "/api/chat/stream"], async (req, res, next) => {
     let session: Session | undefined;
+    const stream = req.path === "/api/chat/stream";
+    let heartbeat: ReturnType<typeof setInterval> | undefined;
     try {
       if (!key || !access.configured)
         throw new CopilotError(
@@ -156,6 +160,17 @@ export function createApiApp(options: {
         ? req.body.selectedClientId
         : undefined;
       budget.reserve(); // Count failures too; no automatic paid retries.
+      if (stream) {
+        res.status(200);
+        res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+        res.setHeader("X-Accel-Buffering", "no");
+        res.flushHeaders();
+        res.write(JSON.stringify({ type: "status", phase: "researching" }) + "\n");
+        heartbeat = setInterval(() => {
+          if (!res.writableEnded && !res.destroyed)
+            res.write(JSON.stringify({ type: "status", phase: "researching" }) + "\n");
+        }, 8000);
+      }
       session.busy = true;
       session.turns++;
       concurrent++;
@@ -174,13 +189,36 @@ export function createApiApp(options: {
         const sources = new Map(session.sources.map((s) => [s.url, s]));
         for (const source of reply.sources) sources.set(source.url, source);
         session.sources = [...sources.values()].slice(-50);
-        res.json({ success: true, provider: "openai", reply });
+        const payload = { success: true, provider: "openai", reply };
+        if (stream) {
+          if (!res.destroyed) {
+            res.write(JSON.stringify({ type: "result", data: payload }) + "\n");
+            res.end();
+          }
+        } else {
+          res.json(payload);
+        }
       } finally {
         session.busy = false;
         concurrent--;
       }
-    } catch (e) {
-      next(e);
+    } catch (e: any) {
+      if (stream && res.headersSent && !res.writableEnded) {
+        // Send only a sanitized error, never upstream text or credentials.
+        const error = e instanceof CopilotError
+          ? e.message
+          : e?.name === "TimeoutError" || e?.name === "AbortError"
+            ? "Web research exceeded its time budget. Try a narrower economic question."
+            : "Research request could not complete. No answer was generated.";
+        if (!res.destroyed) {
+          res.write(JSON.stringify({ type: "error", error }) + "\n");
+          res.end();
+        }
+      } else {
+        next(e);
+      }
+    } finally {
+      if (heartbeat) clearInterval(heartbeat);
     }
   });
   // Legacy refresh never invents an AI response or mutates seeded evidence.
