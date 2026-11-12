@@ -20,10 +20,10 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose }) => 
             <ShieldCheck className="w-5 h-5 text-emerald-800" />
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Simulated Policy Checks | Demo Ruleset v1
+                Data Provenance & Governance
               </h3>
               <p className="text-[11px] text-slate-500">
-                Governance, information-barrier filtering, and deterministic decision constraints
+                Client data protection, information barriers, and human oversight
               </p>
             </div>
           </div>
@@ -43,7 +43,7 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose }) => 
             <div>
               <span className="font-semibold block">Illustrative Pre-Retrieval Authorization Gate</span>
               <p className="text-[11px] text-emerald-900 leading-relaxed mt-0.5">
-                The demonstration uses synthetic records and illustrates different client visibility and read/comment/edit permissions through selectable demo personas. These are NOT authenticated user identities or production security controls. An example information-barrier exclusion is included in the audit trail. No restricted banking records are connected or processed. A production deployment would require bank-approved access controls, data classification, privacy and PII policies, and independent compliance validation before use.
+                All client identities, contacts, CRM notes, account information, market scenarios and simulated bank research in Client Signals are fictional. Ask AI may retrieve real public economic information on demand; that information does not automatically update portfolio recommendations. The sign-in screen and role selector only illustrate access segmentation over synthetic records: they are not bank authentication or production security controls. No live bank CRM, client data or restricted records are connected. Production use would require BNP Paribas review and approved identity, entitlement, information-barrier, PII, audit and privacy controls.
               </p>
             </div>
           </div>

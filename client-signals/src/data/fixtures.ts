@@ -26,6 +26,8 @@ const COVERAGE_ACCOUNTS = [
   ["altitude-cloud", "Altitude Enterprise Systems", "Technology", "Cloud Infrastructure", "$278M USD", "Princeton, NJ", "No documented client treasury decision or supported link to a current synthetic event exists."],
 ] as const;
 
+const COVERAGE_CONTACTS = [["Sarah Whitman","Controller","sarah.whitman","412","0106"],["Luis Romero","VP Finance","luis.romero","585","0107"],["Megan Patel","Treasurer","megan.patel","860","0108"],["Robert Kim","Chief Financial Officer","robert.kim","518","0109"],["Allison Brooks","Director of Treasury","allison.brooks","716","0110"],["Victor Alvarez","VP Finance","victor.alvarez","401","0111"],["Nina Shah","Treasurer","nina.shah","215","0112"],["Kevin McBride","Chief Financial Officer","kevin.mcbride","203","0113"],["Olivia Chen","Finance Director","olivia.chen","302","0114"],["Thomas Gallagher","Controller","thomas.gallagher","207","0115"],["Rachel Stein","Treasurer","rachel.stein","201","0116"],["Jason Reed","VP Finance","jason.reed","914","0117"],["Sofia Martinez","Chief Financial Officer","sofia.martinez","513","0118"],["Arjun Mehta","Director of Treasury","arjun.mehta","609","0119"],["Emily Foster","Treasurer","emily.foster","614","0120"],["Benjamin Ross","Controller","benjamin.ross","937","0121"],["Hannah Price","VP Finance","hannah.price","410","0122"],["Marcus Hill","Chief Financial Officer","marcus.hill","717","0123"],["Chloe Bennett","Treasurer","chloe.bennett","717","0124"],["Jonathan Lee","VP Finance & Treasury","jonathan.lee","609","0125"]] as const;
+
 export const MONITORED_CLIENTS: ClientProfile[] = COVERAGE_ACCOUNTS.map(
   ([id, name, sector, subSector, annualRevenue, headquarters, monitorReason], index) => ({
     id,
@@ -34,13 +36,14 @@ export const MONITORED_CLIENTS: ClientProfile[] = COVERAGE_ACCOUNTS.map(
     subSector,
     annualRevenue,
     headquarters,
-    rmName: "Gabriel V. (Primary Coverage RM, Demo)",
+    rmName: "Gabriel V. (Senior RM, Industrials)",
     coverageGroup: "Mid-Market Corporate Coverage",
     relationshipTier: index % 3 === 0 ? "Tier 2 Growth Client" : "Tier 3 Monitored Relationship",
     treasuryContact: {
-      name: "Not supplied in demo",
-      title: "Contact to be verified",
-      email: "unavailable@example.com",
+      name: COVERAGE_CONTACTS[index][0],
+      title: COVERAGE_CONTACTS[index][1],
+      email: `${COVERAGE_CONTACTS[index][2]}@client-signals.example`,
+      phone: `+1 (${COVERAGE_CONTACTS[index][3]}) 555-${COVERAGE_CONTACTS[index][4]}`,
     },
     keySensitivities: ["Sector context only; no documented actionable client exposure"],
     monitorReason,
@@ -63,6 +66,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
       name: 'Claire Vance',
       title: 'VP Finance & Corporate Treasurer',
       email: 'c.vance@client-signals.example',
+      phone: '+1 (216) 555-0101',
     },
     keySensitivities: ['EUR/USD FX fluctuations', 'Capital equipment financing', 'German supply imports'],
   },
@@ -81,6 +85,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
       name: 'Marcus Thorne',
       title: 'Chief Financial Officer',
       email: 'm.thorne@client-signals.example',
+      phone: '+1 (617) 555-0102',
     },
     keySensitivities: ['SOFR floating interest rate risk', 'Credit line refinancing', 'Working capital debt'],
   },
@@ -99,6 +104,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
       name: 'Evelyn Zhao',
       title: 'Group Treasurer',
       email: 'e.zhao@client-signals.example',
+      phone: '+1 (973) 555-0103',
     },
     keySensitivities: ['Cross-border cash pooling', 'European regulatory capital', 'Port infrastructure fees'],
   },
@@ -117,6 +123,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
       name: 'Derek Kowalski',
       title: 'Finance Director',
       email: 'dkowalski@client-signals.example',
+      phone: '+1 (312) 555-0104',
     },
     keySensitivities: ['Fuel surcharges', 'Asian cross-border payment expansion (Uncertain)', 'Liquidity buffers'],
   },
@@ -135,6 +142,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
       name: 'Richard Alvarez',
       title: 'CFO & Treasurer',
       email: 'ralvarez@client-signals.example',
+      phone: '+1 (313) 555-0105',
     },
     keySensitivities: ['USMCA border rules', 'Domestic steel pricing', 'Re-tooling credit'],
   },
