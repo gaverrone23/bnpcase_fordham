@@ -367,6 +367,7 @@ async function testServer(
   run: (base: string, origin: string) => Promise<void>,
   transport: ResponsesTransport,
   configured = true,
+  judgeDemoUntil?: number,
 ) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "cs-api-"));
   const origin = "https://private-demo.test";
@@ -376,6 +377,7 @@ async function testServer(
     port: 0,
     allowedOrigins: [origin],
     budgetFile: path.join(dir, "budget.json"),
+    judgeDemoUntil,
     transport,
   });
   const server = createServer(app);
@@ -511,6 +513,63 @@ test("missing configuration never invokes a paid transport or fabricates a respo
       return response();
     },
     false,
+  );
+});
+
+test("temporary judge guest access works without a private code, enforces origin and four-turn limits", async () => {
+  let paid = 0;
+  await testServer(
+    async (base, origin) => {
+      const guest = (requestOrigin = origin) => fetch(base + "/api/copilot/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: requestOrigin, "X-Client-Signals": "copilot" },
+        body: "{}",
+      });
+      assert.equal((await guest("https://untrusted.example")).status, 403);
+      const login = await guest();
+      assert.equal(login.status, 200);
+      assert.equal((await login.json()).guest, true);
+      const rawCookie = login.headers.get("set-cookie")!;
+      assert.match(rawCookie, /HttpOnly/i);
+      assert.match(rawCookie, /SameSite=Strict/i);
+      const cookie = rawCookie.split(";")[0];
+      for (let i = 0; i < 4; i++) {
+        const res = await fetch(base + "/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Origin: origin, "X-Client-Signals": "copilot", Cookie: cookie },
+          body: JSON.stringify({ message: "Explain a supply shock" }),
+        });
+        assert.equal(res.status, 200);
+      }
+      assert.equal(paid, 4);
+      const blocked = await fetch(base + "/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: origin, "X-Client-Signals": "copilot", Cookie: cookie },
+        body: JSON.stringify({ message: "One more question" }),
+      });
+      assert.equal(blocked.status, 429);
+      assert.equal(paid, 4);
+    },
+    async () => { paid++; return response(); },
+    true,
+    Date.now() + 60 * 60 * 1000,
+  );
+});
+test("judge guest access fails closed after expiry", async () => {
+  let paid = 0;
+  await testServer(
+    async (base, origin) => {
+      const result = await fetch(base + "/api/copilot/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: origin, "X-Client-Signals": "copilot" },
+        body: "{}",
+      });
+      assert.equal(result.status, 403);
+      assert.equal(paid, 0);
+    },
+    async () => { paid++; return response(); },
+    true,
+    Date.now() - 1000,
   );
 });
 
