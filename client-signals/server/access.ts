@@ -52,7 +52,7 @@ export class AccessControl {
   private loginLimit = new AttemptLimiter(8, 15 * 60 * 1000);
   private loginGlobal = new AttemptLimiter(60, 15 * 60 * 1000);
   readonly chatLimit = new AttemptLimiter(6, 60 * 1000);
-  private guestSessionLimit = new AttemptLimiter(30, 24 * 60 * 60 * 1000);
+  private guestSessionLimit = new AttemptLimiter(12, 24 * 60 * 60 * 1000);
   constructor(
     private code: string | undefined,
     private allowedOrigins: Set<string>,
@@ -87,7 +87,7 @@ export class AccessControl {
       .find((c) => c.startsWith("cs_copilot="))
       ?.slice("cs_copilot=".length);
     for (const [id, s] of this.sessions)
-      if (s.expires < Date.now()) this.sessions.delete(id);
+      if (s.expires < Date.now() || (s.guest && !this.judgeDemoEnabled)) this.sessions.delete(id);
     return raw ? this.sessions.get(raw) : undefined;
   }
   login(req: Request, res: Response, code: unknown) {
