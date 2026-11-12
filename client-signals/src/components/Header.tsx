@@ -24,6 +24,7 @@ interface HeaderProps {
   activeSimulation: 'NONE' | 'USTR_EXEMPTION' | 'FED_RATE_HIKE' | 'QUIET_MARKET';
   onOpenPolicyModal: () => void;
   onOpenChat?: () => void;
+  clientCount?: number;
   reviewCounts: {
     pending: number;
     verify: number;
@@ -41,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPolicyModal,
   onOpenChat,
   reviewCounts,
+  clientCount = 5,
 }) => {
   const [isDemoMenuOpen, setIsDemoMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -82,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-2 text-xs text-slate-500 whitespace-nowrap">
                 <span className="flex items-center gap-1">
                   <Building2 className="w-3 h-3 text-slate-400" />
-                  Portfolio: 5 Mid-Cap Accounts
+                  Portfolio: {clientCount} Mid-Cap Accounts
                 </span>
                 <span className="text-slate-300">·</span>
                 <span className="flex items-center gap-1">
