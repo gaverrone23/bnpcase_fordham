@@ -19,6 +19,7 @@ import { AskClientSignalsDrawer } from "./components/AskClientSignalsDrawer";
 import { MarketIntelligenceModal } from "./components/MarketIntelligenceModal";
 import { MyPortfolio } from "./components/MyPortfolio";
 import { ClientActionPlan } from "./components/ClientActionPlan";
+import { applySignalEvidenceGate } from "./domain/signalEvidence";
 import {
   opportunitiesForTab,
   simulateMarket,
@@ -56,7 +57,7 @@ export default function App() {
     INITIAL_MARKET_DEVELOPMENTS,
   );
   const [opportunities, setOpportunities] = useState<SignalOpportunity[]>(
-    INITIAL_OPPORTUNITIES,
+    () => simulateMarket("NONE", INITIAL_OPPORTUNITIES).opportunities,
   );
   const [primaryView, setPrimaryView] = useState<"PORTFOLIO" | "SIGNALS">(
     "SIGNALS",
@@ -183,7 +184,11 @@ export default function App() {
   };
   const undoDecision = (id: string) => {
     setOpportunities((prev) =>
-      prev.map((o) => (o.id === id ? restoreDecision(o) : o)),
+      applySignalEvidenceGate(
+        prev.map((o) => (o.id === id ? restoreDecision(o) : o)),
+        INITIAL_CRM_NOTES,
+        events,
+      ),
     );
     setNotice(
       "Banker decision undone. Existing evidence and simulation are retained; no message was sent.",
@@ -231,7 +236,7 @@ export default function App() {
   const resetDemo = () => {
     setResetVersion((v) => v + 1);
     setEvents(INITIAL_MARKET_DEVELOPMENTS);
-    setOpportunities(INITIAL_OPPORTUNITIES);
+    setOpportunities(simulateMarket("NONE", INITIAL_OPPORTUNITIES).opportunities);
     setPrimaryView("SIGNALS");
     setPortfolioClientId("atlas-mfg");
     setSelectedOpportunityId("OPP-001-ATLAS");
@@ -355,7 +360,7 @@ export default function App() {
                   Signals &amp; Opportunities
                 </h1>
                 <p className="text-sm text-slate-500 mt-1">
-                  Review relevance, decide, then prepare the next conversation.
+                  Evidence rules determine Act, Verify, or Hold off. The banker decides whether to reach out.
                 </p>
               </div>
               <button
@@ -373,6 +378,7 @@ export default function App() {
                   clients={INITIAL_CLIENTS}
                   events={events}
                   selectedOpportunityId={signalOpportunity?.id || ""}
+                  simulation={activeSimulation}
                   onSelectOpportunity={setSelectedOpportunityId}
                   activeTab={activeTab}
                   onTabChange={changeTab}

@@ -40,6 +40,7 @@ export function buildCopilotContext(input: unknown) {
     if (seed.status === "SUPPRESSED" || seed.status === "VERIFY_FIRST")
       return o;
     const decision = decisions.find((d) => d && d.id === o.id);
+    if (o.evidenceGap && decision?.status === "SURFACED") return o;
     return decision && bankerStatuses.includes(decision.status)
       ? { ...o, status: decision.status as SignalOpportunity["status"] }
       : o;

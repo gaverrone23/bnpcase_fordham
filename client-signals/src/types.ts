@@ -56,9 +56,11 @@ export interface CRMNote {
 export interface MarketDevelopment {
   id: string;
   title: string;
-  publishedAt: string;
+  publishedAt?: string;
   publisher: string;
   sourceType: 'PUBLIC_MARKET_EVENT' | 'INTERNAL_BANK_RESEARCH';
+  provenance: 'SYNTHETIC' | 'EXTERNAL';
+  verification: 'VERIFIED' | 'UNVERIFIED';
   summary: string;
   fullText: string;
   affectedAssetClasses: string[];
@@ -72,6 +74,8 @@ export interface SignalOpportunity {
   clientId: string;
   eventId: string;
   internalResearchId?: string;
+  clientNoteIds?: string[];
+  evidenceGap?: string;
   status: OpportunityStatus;
   priorityRank: number; // 1, 2, 3 for Top 3; or 0 if unranked/suppressed
   priorityTier: PriorityTier;

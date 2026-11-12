@@ -67,13 +67,16 @@ export const Header: React.FC<HeaderProps> = ({
               CS
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="text-base font-bold text-slate-900 tracking-tight whitespace-nowrap">
                   Client Signals
                 </span>
                 <span className="text-xs text-slate-300">/</span>
                 <span className="text-xs font-semibold text-emerald-800 tracking-wide uppercase">
                   Corporate Banking
+                </span>
+                <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+                  Proposed CRM panel
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500 whitespace-nowrap">
@@ -158,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
                         {activeSimulation === 'USTR_EXEMPTION' ? 'Revert USTR Exemption' : 'Simulate Event: USTR 90-Day Exemption'}
                       </span>
                       <span className="text-[11px] text-slate-500 block leading-tight">
-                        Hypothetical waiver; review Atlas customs eligibility and retained FX risk
+                        Unverified synthetic waiver alert; check whether Atlas moves to Verify
                       </span>
                     </div>
                   </button>

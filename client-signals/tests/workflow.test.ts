@@ -1,9 +1,53 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { INITIAL_OPPORTUNITIES, INITIAL_CLIENTS, INITIAL_MARKET_DEVELOPMENTS } from '../src/data/fixtures';
+import { INITIAL_OPPORTUNITIES, INITIAL_CLIENTS, INITIAL_CRM_NOTES, INITIAL_MARKET_DEVELOPMENTS } from '../src/data/fixtures';
 import { atlasUnpaidEUR, atlasRateChangePercent, atlasIncrementalUSD, apexAnnualSensitivityUSD, opportunitiesForTab, simulateMarket } from '../src/domain/workflow';
+import { applySignalEvidenceGate } from '../src/domain/signalEvidence';
+import { canRestoreDecision } from '../src/domain/clientWorkflow';
+import { buildCopilotContext } from '../src/domain/copilot';
 
 const byClient = (opps: typeof INITIAL_OPPORTUNITIES, id: string) => opps.find(o => o.clientId === id)!;
+
+test('Act requires a dated supporting client note and verified timestamped linked sources', () => {
+  const atlas = byClient(INITIAL_OPPORTUNITIES, 'atlas-mfg');
+  const harbor = byClient(INITIAL_OPPORTUNITIES, 'harbor-components');
+  const event = INITIAL_MARKET_DEVELOPMENTS.find(source => source.id === atlas.eventId)!;
+  const research = INITIAL_MARKET_DEVELOPMENTS.find(source => source.id === atlas.internalResearchId)!;
+  const gate = (notes = INITIAL_CRM_NOTES, sources = [event, research]) =>
+    applySignalEvidenceGate([atlas, harbor], notes, sources);
+
+  assert.deepEqual(opportunitiesForTab('TOP_3_ACTIONABLE', gate()), [atlas]);
+  const cases = [
+    [gate(INITIAL_CRM_NOTES.filter(note => note.id !== 'CRM-8812')), /dated client note/],
+    [gate(INITIAL_CRM_NOTES.map(note => note.id === 'CRM-8812' ? { ...note, date: '2026-02-30' } : note)), /dated client note/],
+    [gate(undefined, [research]), /market source is missing/],
+    [gate(undefined, [event]), /research source is missing/],
+    [gate(undefined, [{ ...event, verification: 'UNVERIFIED' }, research]), /market source is unverified/],
+    [gate(undefined, [{ ...event, publishedAt: undefined }, research]), /valid timestamp/],
+    [gate(undefined, [{ ...event, publishedAt: '2026-11-11' }, research]), /valid timestamp/],
+    [gate(undefined, [event, { ...research, verification: 'UNVERIFIED' }]), /research source is unverified/],
+  ] as const;
+  for (const [result, reason] of cases) {
+    assert.equal(opportunitiesForTab('TOP_3_ACTIONABLE', result).length, 0);
+    const [verification] = opportunitiesForTab('NEEDS_VERIFICATION', result);
+    assert.equal(verification.clientId, atlas.clientId);
+    assert.match(verification.evidenceGap ?? '', reason);
+    assert.deepEqual(opportunitiesForTab('SUPPRESSED', result), [harbor]);
+  }
+});
+
+test('the unverified waiver moves Atlas to Verify and rechecks evidence when the scenario ends', () => {
+  const waiver = simulateMarket('USTR_EXEMPTION', INITIAL_OPPORTUNITIES);
+  const atlas = byClient(waiver.opportunities, 'atlas-mfg');
+  assert.equal(atlas.status, 'VERIFY_FIRST');
+  assert.equal(canRestoreDecision(atlas), false);
+  assert.match(atlas.evidenceGap ?? '', /market source is unverified/);
+  assert.match(waiver.report?.clientsAffected.find(client => client.clientId === atlas.clientId)?.statusChange ?? '', /unverified/);
+  assert.equal(byClient(waiver.opportunities, 'harbor-components').status, 'SUPPRESSED');
+  assert.equal(byClient(simulateMarket('NONE', waiver.opportunities).opportunities, 'atlas-mfg').status, 'SURFACED');
+  const context = buildCopilotContext({ simulation: 'USTR_EXEMPTION', opportunities: [{ id: atlas.id, status: 'SURFACED' }] });
+  assert.equal(byClient(context.opportunities, 'atlas-mfg').status, 'VERIFY_FIRST');
+});
 
 test('FX reference calculation and conditional 25 bps interest sensitivity', () => {
   assert.equal(atlasUnpaidEUR, 12_325_000);

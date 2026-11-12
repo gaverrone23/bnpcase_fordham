@@ -3,7 +3,8 @@ import { SignalOpportunity, ClientProfile, MarketDevelopment } from '../types';
 import { Clock, AlertTriangle, EyeOff, CheckCircle2, ChevronRight, Sparkles } from 'lucide-react';
 
 import { opportunitiesForTab, bankerAction } from '../domain/workflow';
-import type { FilterTab } from '../domain/workflow';
+import { sourceTimestamp } from '../domain/signalEvidence';
+import type { FilterTab, Simulation } from '../domain/workflow';
 export type { FilterTab } from '../domain/workflow';
 
 interface PriorityListProps {
@@ -11,9 +12,26 @@ interface PriorityListProps {
   clients: ClientProfile[];
   events: MarketDevelopment[];
   selectedOpportunityId: string;
+  simulation: Simulation;
   onSelectOpportunity: (id: string) => void;
   activeTab: FilterTab;
   onTabChange: (tab: FilterTab) => void;
+}
+
+function SourceBadge({ source, type }: { source?: MarketDevelopment; type: 'Market event' | 'Internal research' }) {
+  const synthetic = source?.provenance === 'SYNTHETIC';
+  const verified = source?.verification === 'VERIFIED';
+  const timestamp = source && sourceTimestamp(source);
+  const sourceType = source ? (source.sourceType === 'PUBLIC_MARKET_EVENT' ? 'Market event' : 'Internal research') : type;
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs leading-relaxed">
+      <span className="font-medium text-slate-800">{synthetic ? 'Synthetic · ' : ''}{sourceType}</span>
+      <span className={verified ? 'text-emerald-800' : 'text-amber-900'}>
+        {!source ? 'Source missing' : !verified ? 'Unverified' : synthetic ? 'Evidence complete (synthetic)' : 'Verified'}
+      </span>
+      {source && <span className="text-slate-600">{timestamp ?? 'Timestamp unavailable'}</span>}
+    </div>
+  );
 }
 
 export const PriorityList: React.FC<PriorityListProps> = ({
@@ -21,6 +39,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
   clients,
   events,
   selectedOpportunityId,
+  simulation,
   onSelectOpportunity,
   activeTab,
   onTabChange,
@@ -54,7 +73,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
               {activeTab === 'TOP_3_ACTIONABLE'
                 ? 'Ranked by timing urgency and documented client exposure'
                 : activeTab === 'NEEDS_VERIFICATION'
-                ? 'Conflicting or stale notes withheld from active outreach'
+                ? 'Sources or client notes need confirmation before outreach'
                 : activeTab === 'SUPPRESSED'
                 ? 'Documented cancellations prevent inappropriate outreach'
                 : 'Complete corporate coverage portfolio'}
@@ -124,6 +143,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
             const client = getClient(opp.clientId);
             const event = getEvent(opp.eventId);
             const isSelected = opp.id === selectedOpportunityId;
+            const showClientBenefit = simulation === 'NONE' && opp.clientId === 'atlas-mfg' && event?.id === 'MKT-2026-904';
 
             return (
               <div
@@ -141,8 +161,8 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 }`}
               >
                 {/* Top Row: Rank/Tier & Status */}
-                <div className="flex items-center justify-between gap-2 mb-1.5 text-xs">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {opp.priorityRank > 0 && (
                       <span className="font-bold text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded text-[11px] font-mono">
                         #{opp.priorityRank} Priority
@@ -181,7 +201,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                     {opp.status === 'SUPPRESSED' && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded">
                         <EyeOff className="w-3 h-3" />
-                        Suppressed
+                        Hold off
                       </span>
                     )}
                     {opp.status === 'SURFACED' && (
@@ -206,16 +226,26 @@ export const PriorityList: React.FC<PriorityListProps> = ({
 
                 <p className="text-xs font-bold text-emerald-900 mb-2">{bankerAction(opp).label}</p>
                 {/* Event Headline */}
-                <div className="text-xs text-slate-700 font-medium break-words leading-relaxed mb-2">
-                  <span className="text-slate-400 font-normal">Synthetic event: </span>
-                  {event?.title}
+                <div className="mb-2 space-y-1">
+                  {event && <p className="text-xs font-medium text-slate-700 wrap-anywhere leading-relaxed">{event.title}</p>}
+                  <SourceBadge source={event} type="Market event" />
+                  {opp.internalResearchId && (
+                    <SourceBadge source={getEvent(opp.internalResearchId)} type="Internal research" />
+                  )}
                 </div>
+                {opp.evidenceGap && <p className="mb-2 text-xs text-amber-900">{opp.evidenceGap}</p>}
 
                 {/* "Why Now" Kicker */}
-                <div className="text-xs text-slate-600 break-words leading-relaxed bg-white/70 p-2 rounded border border-slate-100 mb-2 max-h-24 overflow-y-auto overscroll-contain"
-                  tabIndex={0} role="region" aria-label={`Full Why Now rationale for ${client?.name}`}>
+                <div className="text-xs text-slate-600 wrap-anywhere leading-relaxed bg-white/70 p-2 rounded border border-slate-100 mb-2"
+                  role="region" aria-label={`Full Why Now rationale for ${client?.name}`}>
                   <strong className="text-slate-800 font-semibold">Why Now: </strong>
                   {opp.whyNow}
+                  {showClientBenefit && (
+                    <p className="mt-2">
+                      <strong className="font-semibold text-slate-800">Client benefit: </strong>
+                      Atlas has time to confirm the payment date and review its currency options before the equipment payment is due.
+                    </p>
+                  )}
                 </div>
 
                 {/* Explainable Factor Pills (No black-box scores) */}
@@ -240,7 +270,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
           <Sparkles className="w-3 h-3 text-emerald-700" />
           Evidence rules applied
         </span>
-        <span className="font-mono tabular-nums text-right leading-tight">5 clients · 3 surfaced · 1 verify · 1 hold off
+        <span className="font-mono tabular-nums text-right leading-tight">{countAll} clients · {countTop3} surfaced · {countVerify} verify · {countSuppressed} hold off
           <span className="block text-slate-400">Information-barrier gate: simulated demo audit</span>
         </span>
       </div>
