@@ -267,6 +267,13 @@ test("latest Fed research forces the sole web-search tool and primary Fed domain
     false,
   );
   assert.equal(requiresResearch("Explain my current priorities"), false);
+  assert.equal(requiresResearch("who should I reach out first today?"), false);
+  assert.equal(requiresResearch("Who should I contact today?"), false);
+  assert.equal(requiresResearch("What is my current portfolio ranking today?"), false);
+  assert.equal(requiresResearch("Prepare a follow-up for Atlas today"), false);
+  assert.equal(requiresResearch("What did the Federal Reserve announce today?"), true);
+  assert.equal(requiresResearch("Latest Fed news relevant to Atlas"), true);
+  assert.equal(requiresResearch("Who should I call today?", true), true);
 });
 test("follow-up source reuse preserves original retrieval time instead of implying a fresh search", async () => {
   const source = {
