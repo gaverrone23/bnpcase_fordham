@@ -15,6 +15,9 @@ const app = createApiApp({
     .split(",")
     .map((s) => s.trim()),
   budgetFile: path.join(directory, ".cache", "copilot-daily-budget.json"),
+  judgeDemoUntil: process.env.JUDGE_DEMO_ENABLED === "true"
+    ? Date.parse("2026-11-14T05:00:00Z")
+    : undefined,
 });
 if (process.env.NODE_ENV !== "production") {
   const { createServer } = await import("vite");
