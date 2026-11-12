@@ -197,19 +197,11 @@ export function validateResearchAnswer(
       422,
       "Current research could not be verified with cited web sources. No current market claim is being presented.",
     );
+  // Model-provided workflow labels are never authoritative. The validated
+  // portfolio snapshot determines every displayed ACT/VERIFY/SUPPRESS decision.
+  // This avoids rejecting useful economic analysis just because a language
+  // model missed a workflow array entry or formatted it incorrectly.
   const workflow = new Map<string, string>();
-  for (const decision of parsed.workflow) {
-    const opp = context.opportunities.find(
-      (o) => o.clientId === decision?.clientId,
-    );
-    if (
-      !opp ||
-      workflow.has(opp.clientId) ||
-      decision.action !== actionFor(opp)
-    )
-      return fail();
-    workflow.set(opp.clientId, decision.action);
-  }
   const sourceMap = new Map(provenance.map((s) => [s.url, s]));
   const sourceIds = new Set(
     [...context.notes, ...context.events].map((s) => s.id),
@@ -237,29 +229,38 @@ export function validateResearchAnswer(
       )
     )
       return fail();
+    // Recover client tags when the model uses a valid client name or a
+    // genuine CRM record but forgets a structured clientIds entry.
+    // Unknown client/source references still fail closed.
     if (
-      block.clientIds.some((id: string) => !workflow.has(id)) ||
+      block.clientIds.some((id: string) =>
+        !context.opportunities.some((o) => o.clientId === id)
+      ) ||
       block.syntheticSourceIds.some((id: string) => !sourceIds.has(id))
-    )
-      return fail();
+    ) return fail();
     const inlineIds =
       block.text.match(/\b(?:CRM|MKT|RES-BNP)-[A-Za-z0-9-]+\b/g) || [];
     if (inlineIds.some((id: string) => !sourceIds.has(id))) return fail();
+    const resolvedSources = [...new Set<string>([
+      ...block.syntheticSourceIds, ...inlineIds,
+    ])];
+    const resolvedClients = new Set<string>(block.clientIds);
     for (const client of context.clients) {
       const alias = client.name.split(" ")[0];
-      const noteMention = context.notes.some(
-        (n) =>
-          n.clientId === client.id &&
-          (block.text.includes(n.id) ||
-            block.syntheticSourceIds.includes(n.id)),
+      const noteMention = context.notes.some((n) =>
+        n.clientId === client.id &&
+        (block.text.includes(n.id) || resolvedSources.includes(n.id))
       );
-      if (
-        (new RegExp(`\\b${alias}\\b`, "i").test(block.text) || noteMention) &&
-        !block.clientIds.includes(client.id)
-      )
-        return fail();
+      if (new RegExp(`\\b${alias}\\b`, "i").test(block.text) || noteMention)
+        resolvedClients.add(client.id);
     }
-    if (block.kind === "synthetic_evidence" && !block.syntheticSourceIds.length)
+    const clientIds = [...resolvedClients];
+    for (const id of clientIds) {
+      const opp = context.opportunities.find((o) => o.clientId === id);
+      if (!opp) return fail();
+      workflow.set(id, actionFor(opp));
+    }
+    if (block.kind === "synthetic_evidence" && !resolvedSources.length)
       return fail();
     if (block.kind === "external_information" && !block.webSourceUrls.length)
       return fail();
@@ -280,11 +281,10 @@ export function validateResearchAnswer(
       /\b(today|yesterday|latest|this (?:week|month|year)|as of \d)\b/i.test(
         block.text,
       ) &&
-      block.kind !== "hypothetical" &&
-      block.kind !== "synthetic_evidence"
+      block.kind === "external_information"
     )
       return fail();
-    const gated = block.clientIds.filter((id: string) =>
+    const gated = clientIds.filter((id: string) =>
       ["SUPPRESSED", "VERIFY_FIRST"].includes(
         context.opportunities.find((o) => o.clientId === id)!.status,
       ),
@@ -308,7 +308,7 @@ export function validateResearchAnswer(
         });
       }
     } else {
-      if (block.clientIds.includes("atlas-mfg") && /1\.82\s*%/.test(block.text))
+      if (clientIds.includes("atlas-mfg") && /1\.82\s*%/.test(block.text))
         return fail();
       blocks.push({
         kind: block.kind,
@@ -317,8 +317,8 @@ export function validateResearchAnswer(
         text: block.text
           .replace(/\uE200cite\uE202[^\uE201]*\uE201/g, "")
           .trim(),
-        clientIds: block.clientIds,
-        syntheticSourceIds: block.syntheticSourceIds,
+        clientIds,
+        syntheticSourceIds: resolvedSources,
         webSourceUrls: block.webSourceUrls.map(
           (u: string) => safeSourceUrl(u)!,
         ),
