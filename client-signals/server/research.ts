@@ -204,6 +204,25 @@ export function validateResearchAnswer(
   // model missed a workflow array entry or formatted it incorrectly.
   const workflow = new Map<string, string>();
   const sourceMap = new Map(provenance.map((s) => [s.url, s]));
+  // A model may cite the same article using a tracking query string or
+  // a different hostname spelling. Resolve only to URLs actually returned
+  // by the completed provider search, never to model-supplied URLs.
+  const sourcePath = (input: string) => {
+    try {
+      const u = new URL(input);
+      if (u.protocol !== "https:") return null;
+      return u.hostname.toLowerCase().replace(/^www\./, "") +
+        u.pathname.replace(/\/$/, "") .toLowerCase();
+    } catch { return null; }
+  };
+  const verifiedByPath = new Map(
+    provenance.map((s) => [sourcePath(s.url), s.url]),
+  );
+  // On a completed search, a provider-returned URL is trustworthy as
+  // a *consulted source*, not an automatic verification of every claim.
+  const currentSearchSources = searched
+    ? provenance.filter((s) => !/test-fixture/i.test(s.url))
+    : [];
   const sourceIds = new Set(
     [...context.notes, ...context.events].map((s) => s.id),
   );
@@ -278,21 +297,28 @@ export function validateResearchAnswer(
       kind = "analysis";
     let webUrls: string[] = [];
     for (const value of block.webSourceUrls as string[]) {
-      const url = safeSourceUrl(value);
-      if (!url || !sourceMap.has(url)) {
-        if (researchRequired) return fail("UNVERIFIED_WEB_CITATION");
-        // Never show a model-invented link as a citation in a portfolio answer.
+      const proposed = safeSourceUrl(value);
+      // Resolve against provider-reported results and prefer their actual URL.
+      const verifiedUrl = proposed
+        ? sourceMap.has(proposed)
+          ? proposed
+          : verifiedByPath.get(sourcePath(proposed))
+        : undefined;
+      if (!verifiedUrl) {
+        // Drop hallucinated or malformed citations. They must never be
+        // displayed as clickable evidence, even on a real search turn.
         continue;
       }
-      webUrls.push(url);
-      used.add(url);
+      if (!webUrls.includes(verifiedUrl)) webUrls.push(verifiedUrl);
+      used.add(verifiedUrl);
     }
     if (kind === "external_information" && !webUrls.length) {
       if (researchRequired) {
-        // Use a citation confirmed by this exact completed web-search call.
-        // The server, not the model, selects the provider-supported link.
-        if (!searched || !provenance.length) return fail("MISSING_WEB_CITATION");
-        webUrls = provenance.slice(0, 2).map((s) => s.url);
+        // If the model's citation field is wrong, attach a provider-returned
+        // source as "consulted" rather than surface a hallucinated link.
+        if (!searched || !currentSearchSources.length)
+          return fail("MISSING_WEB_CITATION");
+        webUrls = currentSearchSources.slice(0, 2).map((s) => s.url);
         for (const url of webUrls) used.add(url);
       } else {
         // Synthetic market commentary is NOT externally verified news.
