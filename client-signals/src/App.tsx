@@ -348,7 +348,7 @@ export default function App() {
         <span className="text-xs text-slate-600">{visibleClients.length} visible of 25 synthetic accounts · Permissions: {persona.permissions.join(" / ")}</span>
         <span className="text-xs font-medium text-amber-800">Illustrative entitlements, not secure login</span>
       </div>
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 text-xs text-slate-500 flex flex-wrap justify-between gap-2">
+      <div className="max-w-[1552px] mx-4 xl:mx-auto my-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex flex-wrap justify-between gap-2">
         <span><strong>Demo data:</strong> clients, CRM records, signals and research are synthetic. <strong>Ask AI:</strong> can retrieve public web research on demand; it does not automatically refresh rankings.</span>
         <button onClick={() => setIsPolicyModalOpen(true)} className="font-semibold underline text-emerald-900">Privacy &amp; governance details</button>
         <span>
@@ -543,6 +543,9 @@ export default function App() {
         report={marketReport && { ...marketReport,
           clientsEvaluated: visibleOpportunities.length,
           clientsAffected: marketReport.clientsAffected.filter(x => visibleIds.has(x.clientId)),
+          rankingRationale: personaId === "rm-secondary"
+            ? "This demo report displays only client opportunities included in the selected persona's illustrative coverage. Ranking is qualitative and requires banker review."
+            : marketReport.rankingRationale,
         }}
         isOpen={Boolean(marketReport)}
         onClose={() => setMarketReport(null)}
