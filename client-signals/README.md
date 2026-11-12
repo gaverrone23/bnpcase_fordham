@@ -40,6 +40,14 @@ Answers separate stable economic explanation, synthetic evidence, external infor
 
 Clickable citations use URLs returned by the Responses API/search, not arbitrary model-generated links. Publication metadata is displayed only if supplied; otherwise the UI says it was not provided. Source-stated dates may also appear in cited prose. Retrieval and answer-generation times are separate; follow-ups preserve earlier source retrieval times. Search evidence does not preapprove a client recommendation. Northstar stays VERIFY and Harbor's canceled expansion stays SUPPRESS.
 
+## Temporary Canva judge demo access
+
+For the competition on Friday, November 13, 2026, the organizer's computer may open the shared Client Signals URL without logging in. If server-side `CLIENT_SIGNALS_OPENAI_KEY`, `COPILOT_ACCESS_CODE`, `COPILOT_ALLOWED_ORIGINS` and `JUDGE_DEMO_ENABLED=true` are set, clicking **Ask AI** automatically requests a short-lived guest session. **No private code is shown to judges.** This mode expires automatically at **2026-11-14 05:00 UTC (Friday midnight New York)**. After expiration, normal private-code login is still available.
+
+The server allows at most 12 guest unlocks per 24-hour process window, 4 questions per guest session, and 30 total paid requests per UTC day across guest and private sessions; it also keeps the existing per-IP/session rate and concurrency limits. The total paid-request counter is stored on the service filesystem and can be reset by a free-tier instance replacement or redeployment. These controls **are not a guaranteed dollar cap**: set provider-side limits, keep automatic credit reload OFF, and disable `JUDGE_DEMO_ENABLED` after the event. Never put the OpenAI key in a Canva link, browser code, README, or a slide.
+
+Guest access should be validated from a separate browser/device on the live Render URL with (1) a new guest session automatically available upon opening Ask AI, (2) a real portfolio answer with synthetic record references, and (3) a current Fed web-search answer with provider-backed hyperlinks. Automated tests use fixtures, so they do not prove real inference. The final Canva deck should link to the exact live HTTPS app URL.
+
 ## Validation
 
 ```sh
