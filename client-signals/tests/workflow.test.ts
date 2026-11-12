@@ -5,6 +5,7 @@ import { atlasUnpaidEUR, atlasRateChangePercent, atlasIncrementalUSD, apexAnnual
 import { applySignalEvidenceGate } from '../src/domain/signalEvidence';
 import { canRestoreDecision } from '../src/domain/clientWorkflow';
 import { buildCopilotContext } from '../src/domain/copilot';
+import { DEMO_PERSONAS, scopeDemoClients, canDemoAccessClient, canDemoPermission } from '../src/domain/demoAccess';
 
 const byClient = (opps: typeof INITIAL_OPPORTUNITIES, id: string) => opps.find(o => o.clientId === id)!;
 
@@ -135,4 +136,37 @@ test('every seeded source reference resolves', () => {
     assert.ok(INITIAL_MARKET_DEVELOPMENTS.some(e => e.id === o.eventId));
     if (o.internalResearchId) assert.ok(INITIAL_MARKET_DEVELOPMENTS.some(e => e.id === o.internalResearchId));
   }
+});
+
+test('25-client portfolio maintains only 5 evidence-backed matched signals', () => {
+  assert.equal(INITIAL_CLIENTS.length, 25);
+  assert.equal(INITIAL_OPPORTUNITIES.length, 5);
+  const matched = new Set(INITIAL_OPPORTUNITIES.map(o => o.clientId));
+  const monitored = INITIAL_CLIENTS.filter(c => !matched.has(c.id));
+  assert.equal(monitored.length, 20);
+  assert.ok(monitored.every(c => c.monitorReason && c.monitorReason.length > 30));
+  assert.ok(monitored.every(c => !INITIAL_CRM_NOTES.some(n => n.clientId === c.id)));
+  assert.deepEqual(opportunitiesForTab('TOP_3_ACTIONABLE', INITIAL_OPPORTUNITIES).map(o => o.clientId),
+    ['atlas-mfg', 'apex-biotech', 'meridian-freight']);
+});
+test('illustrative demo personas filter client context and preserve permissions', () => {
+  assert.equal(scopeDemoClients('rm-primary').length, 25);
+  assert.equal(scopeDemoClients('team-lead').length, 25);
+  assert.equal(scopeDemoClients('rm-secondary').length, 10);
+  assert.equal(canDemoAccessClient('rm-secondary', 'atlas-mfg'), false);
+  assert.equal(canDemoAccessClient('rm-secondary', 'apex-biotech'), true);
+  assert.equal(canDemoPermission('rm-secondary', 'comment'), true);
+  assert.equal(canDemoPermission('rm-secondary', 'edit'), false);
+  assert.equal(canDemoPermission('team-lead', 'edit'), true);
+  const restricted = buildCopilotContext({
+    personaId: 'rm-secondary',
+    opportunities: [{ id: 'OPP-001-ATLAS', status: 'REVIEWED' }],
+  });
+  assert.equal(restricted.clients.length, 10);
+  assert.equal(restricted.personaId, 'rm-secondary');
+  assert.ok(!restricted.clients.some(c => c.id === 'atlas-mfg'));
+  assert.ok(!restricted.notes.some(n => n.clientId === 'atlas-mfg'));
+  assert.ok(!restricted.opportunities.some(o => o.clientId === 'atlas-mfg'));
+  assert.ok(!restricted.events.some(e => e.id === 'MKT-2026-904'));
+  assert.equal(restricted.opportunities.find(o => o.clientId === 'apex-biotech')?.status, 'SURFACED');
 });
