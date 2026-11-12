@@ -59,10 +59,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
       <div className="w-full px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16 gap-4">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between min-h-16 py-3 sm:py-0 gap-3">
           
           {/* Zone 1: Operational Brand & Portfolio Scope */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
             <div className="w-9 h-9 rounded bg-emerald-900 flex items-center justify-center text-white font-bold text-sm tracking-wider shadow-xs">
               CS
             </div>
@@ -91,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Zone 2: Operational Telemetry & Review Status */}
-          <div className="hidden lg:flex items-center gap-3 text-xs">
+          <div className="hidden 2xl:flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700">
               <FileCheck2 className="w-3.5 h-3.5 text-emerald-700" />
               <span>Synthetic CRM &amp; Research</span>
@@ -116,6 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
+          <button onClick={onOpenChat} className="ml-auto shrink-0 rounded-lg bg-emerald-800 hover:bg-emerald-900 px-4 py-2 text-sm font-semibold text-white flex items-center gap-2" aria-haspopup="dialog"><Sparkles className="w-4 h-4" />Ask AI</button>
           {/* Zone 3: Demo Controls Menu */}
           <div className="flex items-center gap-2 shrink-0">
             {activeSimulation !== 'NONE' && (
@@ -214,7 +215,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <div>
                       <span className="font-semibold text-slate-900 block">Reset Demo State</span>
                       <span className="text-[11px] text-slate-500 block leading-tight">
-                        Restore pristine 07:30 EST morning baseline priorities
+                        Restore seeded records; clears demo decisions and local follow-ups
                       </span>
                     </div>
                   </button>

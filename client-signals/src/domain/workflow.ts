@@ -2,7 +2,7 @@ import { INITIAL_CLIENTS, INITIAL_OPPORTUNITIES, SIMULATION_FED_RATE_HIKE_EVENT,
 import type { SignalOpportunity, MarketIntelligenceReport } from '../types';
 
 export type FilterTab = 'TOP_3_ACTIONABLE' | 'NEEDS_VERIFICATION' | 'SUPPRESSED' | 'ALL_PORTFOLIO';
-export type Simulation = 'FED_RATE_HIKE' | 'USTR_EXEMPTION' | 'QUIET_MARKET';
+export type Simulation = 'NONE' | 'FED_RATE_HIKE' | 'USTR_EXEMPTION' | 'QUIET_MARKET';
 
 export const atlasExposure = {
   purchaseEUR: 14_500_000,
@@ -25,6 +25,7 @@ export function opportunitiesForTab(tab: FilterTab, opportunities: SignalOpportu
 }
 
 export function bankerAction(opportunity: SignalOpportunity) {
+  if (opportunity.status === 'SURFACED' && opportunity.priorityRank === 0) return { label: 'MONITOR · No active market signal', detail: 'No new actionable shock in this scenario. Review relationship records or prepare routine follow-ups; end the simulation to return to baseline signals without clearing your work.' };
   if (opportunity.status === 'SUPPRESSED') return { label: 'SUPPRESS · No outreach on canceled expansion', detail: 'CRM-7702 supersedes CRM-6910. Review updated account information only if a distinct current exposure is documented; no new opportunity is established.' };
   if (opportunity.status === 'VERIFY_FIRST') return {
     label: 'VERIFY · Confirm current intent before outreach',
@@ -32,7 +33,7 @@ export function bankerAction(opportunity: SignalOpportunity) {
       ? 'Ask Derek Kowalski whether the Asian capex pause in CRM-7210 still applies, whether it is temporary or permanent, and whether any treasury need from CRM-6502 remains active. Record confirmation before proposing solutions.'
       : 'Confirm the client’s current exposure, payment or reset terms, and decision timing with treasury before proposing solutions.',
   };
-  if (opportunity.status === 'REVIEWED') return { label: 'REVIEW RECORDED · Nothing sent', detail: 'Internal review recorded. Confirm current client circumstances and suitability before any outreach.' };
+  if (opportunity.status === 'REVIEWED') return { label: 'REVIEW RECORDED · Nothing sent', detail: 'Prepare the conversation objective and discovery questions below, then record the internal follow-up you will take. Confirm current circumstances and suitability before outreach; nothing has been sent.' };
   if (opportunity.status === 'DEFERRED') return { label: 'DEFERRED · Revisit in 48 hours', detail: 'Removed from the actionable queue. Review updated evidence before resuming outreach.' };
   if (opportunity.status === 'DISMISSED') return { label: 'DISMISSED · No outreach', detail: opportunity.dismissedReason || 'Banker dismissed this suggestion.' };
   return { label: 'ACT · Review for outreach', detail: opportunity.clientId === 'atlas-mfg'
@@ -50,6 +51,7 @@ export function simulateMarket(scenario: Simulation, previous: SignalOpportunity
     return { ...current, ...seed, status: current.status,
       ...(current.status === 'VERIFY_FIRST' ? { priorityTier: 'Needs Verification' as const } : {}), auditTrail: current.auditTrail.filter(a => !['MARKET_SCENARIO', 'QUIET_MARKET_EVALUATION'].includes(a.action)) };
   });
+  if (scenario === 'NONE') return { opportunities: baseline, report: null, event: null };
   const opportunities: SignalOpportunity[] = baseline.map(opp => {
     if (scenario === 'QUIET_MARKET') return { ...opp, priorityRank: 0 }; // No invented banker approval.
     if (scenario === 'FED_RATE_HIKE') {

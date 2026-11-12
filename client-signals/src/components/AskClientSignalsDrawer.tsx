@@ -12,6 +12,7 @@ import {
   Bot,
   User
 } from 'lucide-react';
+import type { Simulation } from '../domain/workflow';
 import { ClientProfile, SignalOpportunity, CRMNote, MarketDevelopment } from '../types';
 
 export interface ChatMessage {
@@ -31,6 +32,7 @@ interface AskClientSignalsDrawerProps {
   opportunities: SignalOpportunity[];
   notes: CRMNote[];
   events: MarketDevelopment[];
+  simulation: Simulation;
 }
 
 export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
@@ -42,15 +44,10 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
   opportunities,
   notes,
   events,
+  simulation,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      sender: 'assistant',
-      text: `Hello Gabriel. I am your Client Signals corporate intelligence assistant. I analyze authorized CRM notes, permitted internal research briefs, and market shocks to explain prioritization and suggest banker discovery strategies.\n\nYou can ask about ${selectedClient ? `**${selectedClient.name}**` : 'any client in your portfolio'} or compare priorities across your coverage book.`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [availability, setAvailability] = useState<'checking' | 'configured' | 'unavailable' | 'offline'>('checking');
   const [inputQuery, setInputQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -60,45 +57,48 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  const checkAvailability = async () => {
+    setAvailability('checking');
+    try {
+      const res = await fetch('/api/health');
+      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) throw new Error('Unavailable');
+      const data = await res.json();
+      setAvailability(data.hasGeminiKey ? 'configured' : 'unavailable');
+    } catch { setAvailability('offline'); }
+  };
+  useEffect(() => { if (isOpen) void checkAvailability(); }, [isOpen]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    panelRef.current?.querySelector<HTMLButtonElement>('[title="Close assistant"]')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { onClose(); return; }
+      if (event.key !== 'Tab') return;
+      const elements = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled)') || []);
+      const first = elements[0], last = elements.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); previous?.focus(); };
+  }, [isOpen, onClose]);
   if (!isOpen) return null;
 
+
+
   // Contextual suggested prompt questions
-  const getSuggestedPrompts = () => {
-    if (selectedClient?.id === 'atlas-mfg') {
-      return [
-        'Why should I contact Atlas Manufacturing before Apex BioTech?',
-        'What specific EUR exposure is documented in CRM note CRM-8812?',
-        'What discovery questions should I ask Claire Vance about currency hedging?',
-      ];
-    }
-    if (selectedClient?.id === 'harbor-components') {
-      return [
-        'Why was the Mexico tariff recommendation suppressed for Harbor?',
-        'What documented board decision in CRM-7702 invalidated this thesis?',
-      ];
-    }
-    if (selectedClient?.id === 'northstar-logistics') {
-      return [
-        'Why is Northstar in the Needs Verification queue instead of Top 3?',
-        'What is conflicting between note CRM-6502 and note CRM-7210?',
-      ];
-    }
-    if (selectedClient?.id === 'apex-biotech') {
-      return [
-        'Why is Apex ranked #2 behind Atlas?',
-        'How does the 24 bps Treasury yield spike impact their $35M facility?',
-      ];
-    }
-    return [
-      'Why should I contact Atlas Manufacturing before Apex BioTech?',
-      'Summarize all three actionable priorities in my portfolio.',
-      'Explain why Harbor Components was suppressed.',
-    ];
-  };
+  const getSuggestedPrompts = () => [
+    `Summarize ${selectedClient?.name || 'my portfolio'} and the documented client history.`,
+    `Which market developments are relevant to ${selectedClient?.name || 'my clients'}, and what needs verification?`,
+    'Compare Atlas and Apex using the current ranks and banker decision status.',
+    'If 90% of Atlas’s unpaid EUR balance were hedged, what would remain exposed? Do not change records.',
+    `Help prepare the next conversation and internal follow-up for ${selectedClient?.name || 'my portfolio'}.`,
+  ];
 
   const handleSendMessage = async (queryText?: string) => {
     const textToSend = queryText || inputQuery;
-    if (!textToSend.trim() || isLoading) return;
+    if (!textToSend.trim() || isLoading || availability !== 'configured') return;
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -121,6 +121,7 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
         })),
         selectedClientId: selectedClient?.id,
         context: {
+          simulation,
           client: selectedClient,
           opportunity: selectedOpportunity,
           portfolioClients: clients.map((c) => ({
@@ -166,7 +167,9 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
         body: JSON.stringify(payload),
       });
 
+      if (!res.headers.get('content-type')?.includes('application/json')) throw new Error('The chat endpoint did not return JSON.');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'AI request unavailable.');
 
       if (data.success && data.response) {
         setMessages((prev) => [
@@ -197,7 +200,7 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
         {
           id: `err-${Date.now()}`,
           sender: 'assistant',
-          text: 'AI Assistant is currently offline: connection to server failed. Please inspect authorized evidence directly in the main workbench.',
+          text: err.message === 'The chat endpoint did not return JSON.' ? err.message : 'AI response unavailable or withheld by workflow checks. Your records and decisions are unchanged. Continue using client evidence and the action plan.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           isError: true,
         },
@@ -207,19 +210,12 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
     }
   };
 
-  const handleResetChat = () => {
-    setMessages([
-      {
-        id: `welcome-${Date.now()}`,
-        sender: 'assistant',
-        text: `Conversation cleared. I am ready to answer questions about ${selectedClient ? `**${selectedClient.name}**` : 'your portfolio'}.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
-  };
+  const handleResetChat = () => setMessages([]);
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] md:w-[500px] bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <>
+    <div className="fixed inset-0 z-40 bg-slate-900/40" onClick={onClose} aria-hidden="true" />
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Ask AI" className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] md:w-[500px] bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
       
       {/* Header */}
       <div className="p-4 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between">
@@ -278,8 +274,13 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
         </span>
       </div>
 
+      <div className="p-4 border-b border-slate-200 text-sm" role="status">
+        {availability === 'checking' ? 'Checking AI availability…' : availability === 'configured' ? 'Gemini key configured · Responses may still fail. Workflow rules remain authoritative.' : availability === 'unavailable' ? 'AI unavailable: Gemini API key is not configured. No AI answer will be generated. You can review evidence, prepare questions and save internal follow-ups without AI.' : 'AI unavailable: the server could not be reached. Your deterministic workflow remains available.'}
+        <button onClick={checkAvailability} className="block mt-2 text-emerald-900 font-semibold underline">Check availability again</button>
+      </div>
       {/* Message History */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/60 text-xs">
+        {messages.length === 0 && <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-600"><p className="font-semibold text-slate-900">Portfolio copilot</p><p className="mt-2">Use this assistant for client history, market relevance, comparisons, exposure hypotheticals and conversation preparation when Gemini is available.</p><p className="mt-2">Northstar requires verification. Harbor’s canceled-expansion thesis stays suppressed. AI cannot send messages, record decisions or execute transactions.</p></div>}
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -361,7 +362,7 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
             <button
               key={idx}
               onClick={() => handleSendMessage(prompt)}
-              disabled={isLoading}
+              disabled={isLoading || availability !== 'configured'}
               className="text-left p-1.5 rounded bg-slate-50 hover:bg-emerald-50 hover:text-emerald-950 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1.5 text-[11px] cursor-pointer disabled:opacity-50"
             >
               <CornerDownRight className="w-3 h-3 text-emerald-700 shrink-0" />
@@ -382,15 +383,16 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
         >
           <input
             type="text"
+            aria-label="Question for AI"
             value={inputQuery}
             onChange={(e) => setInputQuery(e.target.value)}
             placeholder="Ask about prioritization, CRM notes, or market developments..."
-            disabled={isLoading}
+            disabled={isLoading || availability !== 'configured'}
             className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 disabled:bg-slate-100"
           />
           <button
             type="submit"
-            disabled={!inputQuery.trim() || isLoading}
+            disabled={!inputQuery.trim() || isLoading || availability !== 'configured'}
             className="px-3.5 py-2 rounded bg-emerald-900 hover:bg-emerald-950 text-white text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs disabled:opacity-40 cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
@@ -404,5 +406,6 @@ export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
       </div>
 
     </div>
+    </>
   );
 };

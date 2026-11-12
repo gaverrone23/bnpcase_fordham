@@ -183,7 +183,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                     )}
                     {opp.status === 'SURFACED' && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 bg-emerald-100/50 px-2 py-0.5 rounded">
-                        Action Required
+                        {opp.priorityRank > 0 ? 'Action Required' : 'Monitoring'}
                       </span>
                     )}
                   </div>

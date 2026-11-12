@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { buildCopilotContext, copilotSystemInstruction, renderCopilotReply } from './src/domain/copilot';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 dotenv.config();
@@ -58,7 +59,7 @@ async function executeGeminiWithFallback(
       aiClient.models.generateContent({
         model: 'gemini-3.1-flash-lite',
         contents: prompt,
-        config: systemInstruction ? { systemInstruction } : undefined,
+        config: { systemInstruction, responseMimeType: 'application/json' },
       }),
       10000
     );
@@ -66,7 +67,7 @@ async function executeGeminiWithFallback(
       return { text: res.text, modelUsed: 'gemini-3.1-flash-lite' };
     }
   } catch (err: any) {
-    console.warn('Primary model (gemini-3.1-flash-lite) failed or timed out:', err.message);
+    console.warn('Primary Gemini model failed or timed out.');
   }
 
   // Attempt 2: gemini-3.8-flash
@@ -77,6 +78,7 @@ async function executeGeminiWithFallback(
         contents: prompt,
         config: {
           systemInstruction,
+          responseMimeType: 'application/json',
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         },
       }),
@@ -86,7 +88,7 @@ async function executeGeminiWithFallback(
       return { text: res.text, modelUsed: 'gemini-3.8-flash' };
     }
   } catch (err2: any) {
-    console.error('Secondary model (gemini-3.8-flash) failed:', err2.message);
+    console.error('Secondary Gemini model failed.');
     throw err2;
   }
 
@@ -138,7 +140,7 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { message, history, context, selectedClientId } = req.body;
 
-    if (!message || typeof message !== 'string') {
+    if (typeof message !== 'string' || !message.trim() || message.length > 4000) {
       return res.status(400).json({ success: false, error: 'Query message is required.' });
     }
 
@@ -161,67 +163,28 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // Step 3: Build Authorized Context (Pre-Retrieval Gate)
-    const authorizedNotes = (context?.authorizedNotes || []).map((n: any) =>
-      `[${n.id} - ${n.date} - ${n.classification}] Client: ${n.clientId} | Title: ${n.title} | Text: ${n.fullText}`
-    ).join('\n\n');
-
-    const authorizedOpportunities = (context?.opportunities || []).map((o: any) =>
-      `Opportunity ID: ${o.id} | Client: ${o.clientId} | Status: ${o.status} | Rank: #${o.priorityRank} (${o.priorityTier}) | Why Client: ${o.whyThisClient} | Why Now: ${o.whyNow} | Financial Impact: ${o.financialImpact} | Factors: [Urgency: ${o.factors?.timingUrgency}, Exposure: ${o.factors?.clientExposureDepth}, Shock: ${o.factors?.marketShockMagnitude}, Freshness: ${o.factors?.evidenceFreshness}] ${o.suppressionReason ? `| Suppression Reason: ${o.suppressionReason}` : ''}`
-    ).join('\n\n');
-
-    const marketEvents = (context?.marketEvents || []).map((e: any) =>
-      `[${e.id}] ${e.title} (${e.sourceType}) | Metric: ${e.marketShockMetric || 'N/A'} | Summary: ${e.summary}`
-    ).join('\n\n');
-
-    const systemInstruction = `You are Client Signals, an AI corporate banking decision-support assistant at BNP Paribas.
-You assist Relationship Managers (RMs) managing a portfolio of mid-sized corporate clients.
-
-Core Directives:
-1. Grounding & Provenance: Cite specific Document IDs (e.g., CRM-8812, CRM-7901, CRM-8115, CRM-7702, MKT-2026-904, RES-BNP-402) for factual claims. Never invent synthetic facts.
-2. Fact vs Inference: Distinguish Confirmed Facts from Extracted Context or Hypotheses.
-3. Prioritization Logic:
-   - Atlas Manufacturing is #1 because of a 45-day deadline on €12.325M unhedged machinery delivery and +1.82% EUR/USD spike (~$326k USD cost escalation).
-   - Apex BioTech is #2 because their $35M floating-rate loan matures in Q1 2027 and faces rising benchmark yields (+24 bps on 10Y UST).
-   - Meridian Freight is #3 because their Rotterdam cash sweep RFP deadline is Nov 30.
-4. Handling Hypotheticals (e.g. "What if Atlas hedged 90% instead of 15%?"):
-   - Clearly recalculate the hypothetical exposure (e.g. 90% hedged = €13.05M locked, leaving only €1.45M unhedged).
-   - Contrast stored CRM facts with the hypothetical premise.
-   - Explain that Atlas would lose #1 priority to Apex BioTech because its urgent FX volatility risk has been neutralized.
-   - State clearly that the actual CRM record remains unchanged.
-5. Suppression & Excluded Opportunities (e.g., Harbor Components):
-   - Cite CRM-7702 confirming the board formally canceled Project Nearshore in Nov 2025.
-   - Use precise language: "No documented current exposure to Mexican operations" (rather than claiming zero exposure globally).
-   - Suggest defensible banker alternatives: review Detroit plant automated stamping capex (CRM-7702), monitor USMCA domestic parts impacts, or consult BNP automotive specialists.
-6. Uncertainty & Contradictions (e.g., Northstar Logistics):
-   - Highlight the direct conflict between CRM-6502 (former VP Asian freight route proposal) and CRM-7210 (new Finance Director 100% Asian capex freeze).
-   - Separate established facts (leadership transition) from uncertainty (whether the freeze is temporary or permanent). Require verification before client outreach.
-7. Banker in Control: The banker must review all next steps. No external communications or transactions are ever executed autonomously.
-8. Domain Limitation: If asked an unrelated query, decline: "Client Signals is designed for corporate relationship management, market intelligence, and client prioritization. I can't assist with unrelated requests."
-
-AUTHORIZED PORTFOLIO CONTEXT:
-${authorizedOpportunities}
-
-AUTHORIZED CRM NOTES:
-${authorizedNotes}
-
-AUTHORIZED MARKET DEVELOPMENTS & RESEARCH:
-${marketEvents}`;
-
-    const userPrompt = `User Question: ${message}\nCurrent Active Client Focus: ${selectedClientId || 'Portfolio-wide'}`;
-
+    // The client supplies only session decisions and a scenario selector. Source text,
+    // ranks, calculations and seeded hard gates are reconstructed from server fixtures.
+    const trustedContext = buildCopilotContext(context);
+    const systemInstruction = copilotSystemInstruction(trustedContext);
+    const selected = trustedContext.clients.some(c => c.id === selectedClientId) ? selectedClientId : 'Portfolio-wide';
+    const recentHistory = Array.isArray(history) ? history.slice(-6).filter(m => m && ['user', 'assistant'].includes(m.role) && typeof m.content === 'string').map(m => ({role:m.role, content:m.content.slice(0,4000)})) : [];
+    const userPrompt = JSON.stringify({question:message, selectedClient:selected, history:recentHistory});
     const { text, modelUsed } = await executeGeminiWithFallback(ai, userPrompt, systemInstruction);
+    let response: string;
+    try { response = renderCopilotReply(text, trustedContext); }
+    catch { return res.status(422).json({success:false, error:'AI response withheld: source or workflow validation failed. Review the documented evidence; records are unchanged.'}); }
 
     return res.json({
       success: true,
       source: modelUsed,
-      response: text,
+      response,
     });
   } catch (err: any) {
-    console.error('Chat error:', err);
+    console.error('Chat request failed; no response or credential data logged.');
     return res.status(503).json({
       success: false,
-      error: `Gemini service is currently unavailable (${err.message || 'Error'}). Live AI response cannot be completed. Please inspect authorized evidence directly in the workbench.`,
+      error: 'Gemini is unavailable. No AI response was generated. Continue with the client evidence and action plan.',
     });
   }
 });
@@ -232,20 +195,7 @@ app.post('/api/evaluate-signal', async (req, res) => {
     const { client, event, notes, internalResearch } = req.body;
 
     if (!ai || !process.env.GEMINI_API_KEY) {
-      return res.json({
-        success: true,
-        source: 'DETERMINISTIC_RULES_ENGINE',
-        note: 'Gemini API key not configured on server; synthesized via deterministic banking rules.',
-        synthesis: {
-          whyThisClient: `Documented ${client.name} exposure to ${event.affectedAssetClasses?.join(', ')} confirmed by CRM records.`,
-          whyNow: `Market shock (${event.title}) triggers immediate repricing and delivery window urgency.`,
-          financialImpact: `Estimated sensitivity: Significant variance based on ${client.annualRevenue} turnover.`,
-          recommendedQuestions: [
-            `Has ${client.treasuryContact?.name || 'treasury'} evaluated this specific market volatility?`,
-            `Would ${client.name} benefit from structured hedging or liquidity restructuring?`,
-          ],
-        },
-      });
+      return res.status(503).json({success:false, error:'AI refresh unavailable: Gemini API key is not configured. Existing evidence is unchanged.'});
     }
 
     const prompt = `You are a senior Corporate Banking Relationship Manager intelligence assistant at BNP Paribas.
@@ -273,20 +223,8 @@ Respond in concise JSON with:
       synthesis: parsed,
     });
   } catch (err: any) {
-    console.error('Gemini synthesis error:', err);
-    return res.json({
-      success: true,
-      source: 'DETERMINISTIC_FALLBACK',
-      note: 'Simulated fallback response triggered due to API timeout or availability.',
-      synthesis: {
-        whyThisClient: `Documented exposure in authorized CRM records matches asset class movements.`,
-        whyNow: `Recent market shock creates high urgency for treasury review.`,
-        financialImpact: `Material financial variance anticipated.`,
-        recommendedQuestions: [
-          `Review unhedged balance sheet exposure with treasury committee.`,
-        ],
-      },
-    });
+    console.error('AI refresh failed; no response or credential data logged.');
+    return res.status(503).json({success:false, error:'AI refresh unavailable. No replacement analysis was generated.'});
   }
 });
 
@@ -295,7 +233,6 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
-    geminiKeyLength: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
     time: new Date().toISOString() 
   });
 });

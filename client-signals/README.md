@@ -15,10 +15,12 @@ View your app in AI Studio: https://ai.studio/apps/da942925-ddca-45e5-adb9-13983
 
 1. Install dependencies:
    `npm install --legacy-peer-deps --package-lock=false`
-2. No API key is needed for the deterministic demo. Chat and AI refresh are unavailable in the primary demo; their implementation is retained for later integration. The backend reads exported variables or `.env`, not `.env.local`.
+2. No API key is needed for the deterministic demo. The global Ask AI button opens the portfolio copilot; without a configured Gemini key it shows an explicit unavailable state. AI refresh does not return simulated model answers. The backend reads exported variables or `.env`, not `.env.local`.
 3. Run the app:
    `npm run dev`
 
 `npm run dev` starts Express and Vite together on port 3000. Select All to inspect each client, or use Demo Controls to simulate an event and Reset Demo to restore the seeded portfolio. All records and events are synthetic; nothing is sent to clients.
 
-Validation: `npm test`, `npm run lint` (type checking), `npm run build`. In the cloud browser-testing environment with Playwright and Chromium supplied, run `node tests/browser.cjs` against the running development server. Screenshots default to `/tmp/client-signals-screenshots`; `SCREENSHOT_DIR` overrides this.
+Validation: `npm test`, `npm run lint` (type checking), `npm run build`. In the cloud browser-testing environment with Playwright and Chromium supplied, run `node tests/browser.cjs` and `node tests/rm-experience.cjs` against the running development server. Screenshots default to `/tmp/client-signals-screenshots`; `SCREENSHOT_DIR` overrides this.
+
+My Portfolio and Signals & Opportunities link by client. Banker decisions last for this session and can be undone without resetting. Internal follow-ups are saved in this browser’s local storage, not to an external CRM. Ending a simulation keeps that work; Reset Demo explicitly clears demo decisions and follow-ups. Live Gemini inference remains unverified without a key.

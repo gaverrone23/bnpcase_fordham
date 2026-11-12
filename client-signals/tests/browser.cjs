@@ -3,6 +3,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const baseURL = process.env.BASE_URL || 'http://127.0.0.1:3000';
 const output = process.env.SCREENSHOT_DIR || '/tmp/client-signals-screenshots';
 fs.mkdirSync(output, {recursive: true});
 (async () => {
@@ -24,7 +25,7 @@ fs.mkdirSync(output, {recursive: true});
       const ids = await inspector().getByTestId('crm-note').evaluateAll(nodes => nodes.map(n => n.dataset.clientId));
       assert.ok(ids.length); assert.ok(ids.every(id => id === client));
     };
-    await page.goto('http://127.0.0.1:3000');
+    await page.goto(baseURL);
     await inspector().getByRole('heading', {name: 'Atlas Manufacturing Co.', exact: true}).waitFor();
     const baseline = await snapshot();
     assert.match(baseline.evidence, /2\.45%/); assert.match(baseline.evidence, /326,612\.50/);
@@ -76,7 +77,7 @@ fs.mkdirSync(output, {recursive: true});
     await scenario('Quiet Market Scenario'); await page.getByRole('button', {name: 'Top 3 (0)', exact: true}).waitFor();
     assert.equal(await inspector().count(), 0); await page.getByRole('heading', {name:'No recommendations in this queue'}).waitFor();
     await page.getByRole('button', {name:'All (5)', exact:true}).click(); await choose('Atlas Manufacturing Co.');
-    assert.match(await inspector().innerText(), /ACT · Review for outreach/); // No fabricated prior approvals.
+    assert.match(await inspector().innerText(), /MONITOR · No active market signal/); // No fabricated prior approvals or fresh outreach.
     await reset();
     await inspector().getByRole('button', {name:'Mark for Outreach Review',exact:true}).first().click();
     await page.getByRole('button', {name:'Top 3 (2)',exact:true}).waitFor();
