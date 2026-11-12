@@ -100,16 +100,20 @@ SERVER-SIDE SYNTHETIC PORTFOLIO CONTEXT:
 ${JSON.stringify(context)}`;
 }
 export function requiresResearch(message: string, explicit = false) {
+  if (explicit) return true;
   const question = message.replace(
     /\bcurrent (?:ratio|assets|liabilities|account|priorities|portfolio|rankings?|scenario|banker decisions?|synthetic|documented)\b/gi,
     "documented concept",
   );
-  return (
-    explicit ||
-    /\b(latest|today|yesterday|current|currently|recent|news|this (?:week|month)|as of|live|market (?:rate|price)|federal reserve development)\b/i.test(
-      question,
-    )
-  );
+  // "Who should I reach out to today?" asks about the synthetic RM work
+  // queue, not today's live news. Don't force a web citation or withhold an
+  // otherwise valid portfolio response solely because of time-of-day wording.
+  const internalPortfolioQuestion =
+    /\b(?:reach out|outreach|contact|call|priorit(?:y|ies|ize|izing)|rank(?:s|ing|ed)?|next best action|follow[ -]?ups?|crm|portfolio|clients?|atlas|apex|northstar|harbor|meridian)\b/i.test(question);
+  const explicitExternalQuestion =
+    /\b(?:latest|news|headlines?|market(?:s| developments?| rates?| prices?)?|economic|economy|macro(?:economics?)?|fed|fomc|federal reserve|ecb|central bank|inflation|sofr|interest rates?|fx|foreign exchange|tariffs?|announc(?:e|ed|ement|ements)|web|search|external|real[ -]?world|live|published|released)\b/i.test(question);
+  if (internalPortfolioQuestion && !explicitExternalQuestion) return false;
+  return /\b(latest|today|yesterday|current|currently|recent|news|this (?:week|month)|as of|live|market (?:rate|price)|federal reserve development)\b/i.test(question);
 }
 export function safeSourceUrl(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 2048) return null;
