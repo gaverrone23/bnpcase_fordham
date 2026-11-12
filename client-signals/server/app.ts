@@ -160,6 +160,14 @@ export function createApiApp(options: {
           "Copilot rate limit: at most 6 questions per minute.",
         );
       const context = buildCopilotContext(req.body.context);
+      // Persona switching is an illustrative demo filter, not bank login.
+      // Clear history before switching so no prior synthetic client context
+      // is carried into the next role's model conversation.
+      if (session.demoPersonaId !== context.personaId) {
+        session.history = [];
+        session.sources = [];
+        session.demoPersonaId = context.personaId;
+      }
       const selected = context.clients.some(
         (c) => c.id === req.body.selectedClientId,
       )
