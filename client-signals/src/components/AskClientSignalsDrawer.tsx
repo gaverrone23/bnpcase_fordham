@@ -1,29 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  X, 
-  Send, 
-  Sparkles, 
-  Building2, 
-  FileText, 
-  AlertCircle, 
-  CornerDownRight, 
-  ShieldAlert, 
+import React, { useEffect, useRef, useState } from "react";
+import {
+  X,
+  Send,
+  Sparkles,
+  Building2,
   RotateCcw,
-  Bot,
-  User
-} from 'lucide-react';
-import type { Simulation } from '../domain/workflow';
-import { ClientProfile, SignalOpportunity, CRMNote, MarketDevelopment } from '../types';
+  ExternalLink,
+} from "lucide-react";
+import type {
+  ClientProfile,
+  SignalOpportunity,
+  CRMNote,
+  MarketDevelopment,
+} from "../types";
+import type { Simulation } from "../domain/workflow";
+import type { CopilotReply, AnswerKind } from "../copilotTypes";
 
-export interface ChatMessage {
-  id: string;
-  sender: 'user' | 'assistant';
-  text: string;
-  timestamp: string;
-  isError?: boolean;
-}
-
-interface AskClientSignalsDrawerProps {
+interface Props {
   isOpen: boolean;
   onClose: () => void;
   selectedClient?: ClientProfile;
@@ -34,378 +27,550 @@ interface AskClientSignalsDrawerProps {
   events: MarketDevelopment[];
   simulation: Simulation;
 }
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  text?: string;
+  reply?: CopilotReply;
+  error?: boolean;
+}
+interface Availability {
+  configured: boolean;
+  accessConfigured: boolean;
+  authenticated: boolean;
+  reason?: string | null;
+  model?: string;
+}
+const requestHeaders = {
+  "Content-Type": "application/json",
+  "X-Client-Signals": "copilot",
+};
+const kindLabels: Record<AnswerKind, string> = {
+  general_explanation: "Economic explanation",
+  synthetic_evidence: "Synthetic CRM evidence",
+  external_information: "External information · Web-sourced",
+  analysis: "Analytical inference",
+  hypothetical: "Hypothetical scenario",
+  workflow_rule: "Deterministic workflow safeguard · Not AI advice",
+};
 
-export const AskClientSignalsDrawer: React.FC<AskClientSignalsDrawerProps> = ({
+export function AskClientSignalsDrawer({
   isOpen,
   onClose,
   selectedClient,
-  selectedOpportunity,
-  clients,
   opportunities,
   notes,
   events,
   simulation,
-}) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [availability, setAvailability] = useState<'checking' | 'configured' | 'unavailable' | 'offline'>('checking');
-  const [inputQuery, setInputQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
-
-  const panelRef = useRef<HTMLDivElement>(null);
-  const checkAvailability = async () => {
-    setAvailability('checking');
-    try {
-      const res = await fetch('/api/health');
-      if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) throw new Error('Unavailable');
-      const data = await res.json();
-      setAvailability(data.hasGeminiKey ? 'configured' : 'unavailable');
-    } catch { setAvailability('offline'); }
+}: Props) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [code, setCode] = useState("");
+  const [input, setInput] = useState("");
+  const [research, setResearch] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [sessionError, setSessionError] = useState("");
+  const panel = useRef<HTMLDivElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const ready = Boolean(
+    availability?.configured &&
+      availability.accessConfigured &&
+      availability.authenticated,
+  );
+  const readJson = async (response: Response) => {
+    if (!response.headers.get("content-type")?.includes("application/json"))
+      throw new Error("The chat endpoint did not return JSON.");
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "Copilot request unavailable.");
+    return data;
   };
-  useEffect(() => { if (isOpen) void checkAvailability(); }, [isOpen]);
+  const checkAvailability = async () => {
+    setChecking(true);
+    setSessionError("");
+    try {
+      setAvailability(await readJson(await fetch("/api/copilot/session")));
+    } catch {
+      setAvailability(null);
+      setSessionError(
+        "Copilot server unavailable. Evidence and banker decisions remain usable.",
+      );
+    } finally {
+      setChecking(false);
+    }
+  };
+  useEffect(() => {
+    if (isOpen) void checkAvailability();
+  }, [isOpen]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, busy]);
   useEffect(() => {
     if (!isOpen) return;
     const previous = document.activeElement as HTMLElement | null;
-    panelRef.current?.querySelector<HTMLButtonElement>('[title="Close assistant"]')?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { onClose(); return; }
-      if (event.key !== 'Tab') return;
-      const elements = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled)') || []);
-      const first = elements[0], last = elements.at(-1);
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    panel.current
+      ?.querySelector<HTMLButtonElement>('[aria-label="Close assistant"]')
+      ?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusable = Array.from(
+        panel.current?.querySelectorAll<HTMLElement>(
+          "button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href]",
+        ) || [],
+      );
+      const first = focusable[0],
+        last = focusable.at(-1);
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
     };
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('keydown', onKey); previous?.focus(); };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      previous?.focus();
+    };
   }, [isOpen, onClose]);
   if (!isOpen) return null;
-
-
-
-  // Contextual suggested prompt questions
-  const getSuggestedPrompts = () => [
-    `Summarize ${selectedClient?.name || 'my portfolio'} and the documented client history.`,
-    `Which market developments are relevant to ${selectedClient?.name || 'my clients'}, and what needs verification?`,
-    'Compare Atlas and Apex using the current ranks and banker decision status.',
-    'If 90% of Atlas’s unpaid EUR balance were hedged, what would remain exposed? Do not change records.',
-    `Help prepare the next conversation and internal follow-up for ${selectedClient?.name || 'my portfolio'}.`,
-  ];
-
-  const handleSendMessage = async (queryText?: string) => {
-    const textToSend = queryText || inputQuery;
-    if (!textToSend.trim() || isLoading || availability !== 'configured') return;
-
-    const userMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      sender: 'user',
-      text: textToSend.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    if (!queryText) setInputQuery('');
-    setIsLoading(true);
-
+  const unlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSessionError("");
+    setBusy(true);
     try {
-      // Build authorized context payload
-      const payload = {
-        message: userMsg.text,
-        history: messages.slice(-6).map((m) => ({
-          role: m.sender === 'user' ? 'user' : 'assistant',
-          content: m.text,
-        })),
-        selectedClientId: selectedClient?.id,
-        context: {
-          simulation,
-          client: selectedClient,
-          opportunity: selectedOpportunity,
-          portfolioClients: clients.map((c) => ({
-            id: c.id,
-            name: c.name,
-            sector: c.sector,
-            revenue: c.annualRevenue,
-          })),
-          opportunities: opportunities.map((o) => ({
-            id: o.id,
-            clientId: o.clientId,
-            status: o.status,
-            priorityRank: o.priorityRank,
-            priorityTier: o.priorityTier,
-            whyThisClient: o.whyThisClient,
-            whyNow: o.whyNow,
-            financialImpact: o.financialImpactHypothesis,
-            factors: o.factors,
-            suppressionReason: o.suppressionAuditReason,
-          })),
-          authorizedNotes: notes.filter((n) => !n.isSuperseded).map((n) => ({
-            id: n.id,
-            clientId: n.clientId,
-            date: n.date,
-            title: n.title,
-            classification: n.classification,
-            excerpt: n.excerpt,
-            fullText: n.fullText,
-          })),
-          marketEvents: events.map((e) => ({
-            id: e.id,
-            title: e.title,
-            sourceType: e.sourceType,
-            summary: e.summary,
-            marketShockMetric: e.marketShockMetric,
-          })),
-        },
-      };
-
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      const data = await readJson(
+        await fetch("/api/copilot/session", {
+          method: "POST",
+          headers: requestHeaders,
+          body: JSON.stringify({ code }),
+        }),
+      );
+      setAvailability(data);
+      setMessages([]);
+    } catch (e: any) {
+      setSessionError(e.message);
+    } finally {
+      setCode("");
+      setBusy(false);
+    }
+  };
+  const send = async (prompt?: string, forceResearch = false) => {
+    const text = (prompt || input).trim();
+    if (!text || busy || !ready) return;
+    const id = crypto.randomUUID();
+    setMessages((prev) => [...prev, { id, role: "user", text }]);
+    setInput("");
+    setBusy(true);
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: requestHeaders,
+        body: JSON.stringify({
+          message: text,
+          research: research || forceResearch,
+          selectedClientId: selectedClient?.id,
+          context: {
+            simulation,
+            opportunities: opportunities.map((o) => ({
+              id: o.id,
+              status: o.status,
+            })),
+          },
+        }),
       });
-
-      if (!res.headers.get('content-type')?.includes('application/json')) throw new Error('The chat endpoint did not return JSON.');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'AI request unavailable.');
-
-      if (data.success && data.response) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `assistant-${Date.now()}`,
-            sender: 'assistant',
-            text: data.response,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `err-${Date.now()}`,
-            sender: 'assistant',
-            text: data.error || 'AI Assistant is currently offline. Unable to complete live inference.',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isError: true,
-          },
-        ]);
-      }
-    } catch (err: any) {
-      console.error('Chat error:', err);
+      if (response.status === 401)
+        setAvailability((a) => (a ? { ...a, authenticated: false } : a));
+      const data = await readJson(response);
+      if (
+        !data.success ||
+        data.provider !== "openai" ||
+        !data.reply?.responseId
+      )
+        throw new Error("No verified model response was returned.");
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "assistant", reply: data.reply },
+      ]);
+    } catch (e: any) {
       setMessages((prev) => [
         ...prev,
         {
-          id: `err-${Date.now()}`,
-          sender: 'assistant',
-          text: err.message === 'The chat endpoint did not return JSON.' ? err.message : 'AI response unavailable or withheld by workflow checks. Your records and decisions are unchanged. Continue using client evidence and the action plan.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isError: true,
+          id: crypto.randomUUID(),
+          role: "assistant",
+          text: e.message || "AI unavailable. Portfolio data is unchanged.",
+          error: true,
         },
       ]);
     } finally {
-      setIsLoading(false);
+      setBusy(false);
     }
   };
-
-  const handleResetChat = () => setMessages([]);
-
+  const clear = async () => {
+    if (busy) return;
+    if (!ready) {
+      setMessages([]);
+      return;
+    }
+    try {
+      await readJson(
+        await fetch("/api/copilot/conversation", {
+          method: "POST",
+          headers: requestHeaders,
+          body: "{}",
+        }),
+      );
+      setMessages([]);
+    } catch (e: any) {
+      setSessionError(e.message);
+    }
+  };
+  const prompts = [
+    {
+      label: "Explain my priorities",
+      text: "Why does Atlas rank ahead of Apex in the baseline, and what changes under the current scenario and banker decisions? Cite the synthetic CRM evidence.",
+    },
+    {
+      label: "Research market developments",
+      text: "Research the latest Federal Reserve development using official sources. Give publication/effective dates where stated, distinguish retrieval time, and explain possible relevance to our synthetic exposures without changing rankings.",
+      research: true,
+    },
+    {
+      label: "Challenge an assumption",
+      text: "Challenge the assumption that a 25 bps Fed move means an identical borrowing-cost increase for Apex. What would we need to verify?",
+    },
+    {
+      label: "Prepare a client conversation",
+      text: `Help prepare a conversation or internal verification step for ${selectedClient?.name || "my clients"}. Give an objective and discovery questions while respecting current workflow safeguards.`,
+    },
+  ];
   return (
     <>
-    <div className="fixed inset-0 z-40 bg-slate-900/40" onClick={onClose} aria-hidden="true" />
-    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Ask AI" className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] md:w-[500px] bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
-      
-      {/* Header */}
-      <div className="p-4 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-emerald-700 flex items-center justify-center text-white">
-            <Sparkles className="w-4 h-4 text-emerald-300" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-white tracking-tight">
-                Ask Client Signals
-              </h2>
-              <span className="text-[10px] font-mono font-medium bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-800">
-                AI Assistant
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Contextual Intelligence &amp; Prioritization Reasoning
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleResetChat}
-            className="p-1.5 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
-            title="Reset conversation history"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
-            title="Close assistant"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Active Context Bar */}
-      <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5 text-slate-700 truncate">
-          <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="font-semibold text-slate-900 truncate">
-            {selectedClient ? selectedClient.name : 'Portfolio Overview'}
-          </span>
-          {selectedOpportunity && (
-            <span className="text-slate-400 font-mono text-[11px]">
-              ({selectedOpportunity.priorityTier})
-            </span>
-          )}
-        </div>
-        <span className="text-[10px] text-emerald-900 font-medium bg-emerald-100 px-2 py-0.5 rounded shrink-0">
-          Authorized Sources Only
-        </span>
-      </div>
-
-      <div className="p-4 border-b border-slate-200 text-sm" role="status">
-        {availability === 'checking' ? 'Checking AI availability…' : availability === 'configured' ? 'Gemini key configured · Responses may still fail. Workflow rules remain authoritative.' : availability === 'unavailable' ? 'AI unavailable: Gemini API key is not configured. No AI answer will be generated. You can review evidence, prepare questions and save internal follow-ups without AI.' : 'AI unavailable: the server could not be reached. Your deterministic workflow remains available.'}
-        <button onClick={checkAvailability} className="block mt-2 text-emerald-900 font-semibold underline">Check availability again</button>
-      </div>
-      {/* Message History */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/60 text-xs">
-        {messages.length === 0 && <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-600"><p className="font-semibold text-slate-900">Portfolio copilot</p><p className="mt-2">Use this assistant for client history, market relevance, comparisons, exposure hypotheticals and conversation preparation when Gemini is available.</p><p className="mt-2">Northstar requires verification. Harbor’s canceled-expansion thesis stays suppressed. AI cannot send messages, record decisions or execute transactions.</p></div>}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex items-start gap-2.5 ${
-              msg.sender === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            {msg.sender === 'assistant' && (
-              <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 mt-0.5 ${
-                msg.isError ? 'bg-rose-100 text-rose-700' : 'bg-slate-900 text-emerald-400'
-              }`}>
-                {msg.isError ? <AlertCircle className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
-              </div>
-            )}
-
-            <div
-              className={`max-w-[85%] rounded-lg p-3 text-xs leading-relaxed ${
-                msg.sender === 'user'
-                  ? 'bg-emerald-900 text-white rounded-tr-none shadow-xs'
-                  : msg.isError
-                  ? 'bg-rose-50 border border-rose-200 text-rose-900 rounded-tl-none'
-                  : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-xs'
-              }`}
-            >
-              <div className="whitespace-pre-wrap space-y-1">
-                {msg.text.split('\n\n').map((paragraph, pIdx) => (
-                  <p key={pIdx}>
-                    {paragraph.split('**').map((chunk, cIdx) =>
-                      cIdx % 2 === 1 ? (
-                        <strong key={cIdx} className="font-semibold">
-                          {chunk}
-                        </strong>
-                      ) : (
-                        chunk
-                      )
-                    )}
-                  </p>
-                ))}
-              </div>
-              <div
-                className={`text-[10px] mt-1.5 text-right ${
-                  msg.sender === 'user' ? 'text-emerald-200' : 'text-slate-400'
-                }`}
-              >
-                {msg.timestamp}
-              </div>
-            </div>
-
-            {msg.sender === 'user' && (
-              <div className="w-6 h-6 rounded bg-emerald-800 text-white flex items-center justify-center shrink-0 mt-0.5">
-                <User className="w-3.5 h-3.5" />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {isLoading && (
-          <div className="flex items-start gap-2.5">
-            <div className="w-6 h-6 rounded bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0">
-              <Bot className="w-3.5 h-3.5 animate-pulse" />
-            </div>
-            <div className="bg-white border border-slate-200 rounded-lg p-3 rounded-tl-none shadow-xs flex items-center gap-2 text-slate-500 text-xs">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-700 animate-spin" />
-              <span>Analyzing authorized CRM records &amp; market context...</span>
+      <div
+        className="fixed inset-0 z-40 bg-slate-900/40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ask AI"
+        className="fixed inset-y-0 right-0 z-50 w-full sm:w-[600px] max-w-full bg-white border-l border-slate-200 shadow-2xl flex flex-col"
+      >
+        <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+          <div className="flex gap-3 items-center">
+            <Sparkles className="w-5 h-5 text-emerald-400" />
+            <div>
+              <h2 className="font-bold">Ask Client Signals</h2>
+              <p className="text-xs text-slate-300 mt-1">
+                OpenAI copilot · Economics, portfolio &amp; web research
+              </p>
             </div>
           </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Suggested Prompt Chips */}
-      <div className="p-3 bg-white border-t border-slate-200 text-xs">
-        <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">
-          Suggested Questions:
-        </span>
-        <div className="flex flex-col gap-1.5">
-          {getSuggestedPrompts().map((prompt, idx) => (
+          <div className="flex gap-2">
             <button
-              key={idx}
-              onClick={() => handleSendMessage(prompt)}
-              disabled={isLoading || availability !== 'configured'}
-              className="text-left p-1.5 rounded bg-slate-50 hover:bg-emerald-50 hover:text-emerald-950 text-slate-700 border border-slate-200 transition-colors flex items-center gap-1.5 text-[11px] cursor-pointer disabled:opacity-50"
+              onClick={clear}
+              disabled={busy}
+              aria-label="New conversation"
+              title="New conversation (keeps session budget)"
+              className="p-2"
             >
-              <CornerDownRight className="w-3 h-3 text-emerald-700 shrink-0" />
-              <span className="truncate">{prompt}</span>
+              <RotateCcw className="w-4 h-4" />
             </button>
-          ))}
+            <button
+              onClick={onClose}
+              aria-label="Close assistant"
+              className="p-2"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Input Bar */}
-      <div className="p-3 bg-white border-t border-slate-200">
+        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs flex items-center gap-2">
+          <Building2 className="w-4 h-4 shrink-0" />
+          <span>{selectedClient?.name || "Portfolio overview"}</span>
+          <span className="ml-auto text-emerald-800">
+            CRM &amp; rankings are read-only
+          </span>
+        </div>
+        <div className="p-4 border-b border-slate-200 text-sm" role="status">
+          {checking
+            ? "Checking OpenAI availability…"
+            : !availability?.configured
+              ? `AI unavailable: ${availability?.reason || "OpenAI API key is not configured."} No model response can be generated.`
+              : !availability.accessConfigured
+                ? "AI unavailable: server access control is not configured. An administrator must set a private access code."
+                : !availability.authenticated
+                  ? "OpenAI is configured. Unlock this private demo to send budgeted requests. Model access is not yet verified."
+                  : "Private session unlocked · Requests use server-side budgets. Live answer provenance is shown per response."}
+          {!ready && (
+            <button
+              onClick={checkAvailability}
+              disabled={checking || busy}
+              className="block mt-2 text-emerald-900 font-semibold underline"
+            >
+              Check availability again
+            </button>
+          )}
+          {sessionError && (
+            <p role="alert" className="mt-2 text-rose-800">
+              {sessionError}
+            </p>
+          )}
+          {availability?.configured &&
+            availability.accessConfigured &&
+            !availability.authenticated && (
+              <form onSubmit={unlock} className="mt-3 flex gap-2">
+                <input
+                  aria-label="Demo access code"
+                  type="password"
+                  autoComplete="off"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  maxLength={200}
+                  placeholder="Private demo access code"
+                  className="min-w-0 flex-1 rounded border border-slate-300 p-2"
+                />
+                <button
+                  disabled={busy || !code.trim()}
+                  className="rounded bg-emerald-800 text-white px-3 py-2 font-semibold"
+                >
+                  Unlock copilot
+                </button>
+              </form>
+            )}
+        </div>
+        <div
+          className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-slate-50"
+          aria-label="Conversation"
+        >
+          {messages.length === 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 leading-relaxed">
+              <h3 className="font-bold text-slate-900">
+                Ask a question, then keep exploring
+              </h3>
+              <p className="mt-2">
+                Ask about economics, finance or your synthetic portfolio.
+                Challenge an assumption, compare clients, or follow up on an
+                earlier answer.
+              </p>
+              <p className="mt-2">
+                External research is evidence to investigate—not an approved
+                recommendation. General news is not an authoritative
+                market-price feed.
+              </p>
+              <p className="mt-2">
+                Northstar remains VERIFY; Harbor’s canceled expansion remains
+                SUPPRESS. No answer changes your records or decisions.
+              </p>
+            </div>
+          )}
+          {messages.map((message) => (
+            <article
+              key={message.id}
+              className={`rounded-xl p-4 text-sm leading-relaxed ${message.role === "user" ? "bg-emerald-900 text-white ml-8" : message.error ? "bg-rose-50 border border-rose-200 text-rose-900" : "bg-white border border-slate-200"}`}
+              aria-label={
+                message.role === "user"
+                  ? "Your question"
+                  : message.error
+                    ? "Request unavailable"
+                    : "Copilot answer"
+              }
+            >
+              {message.text && (
+                <p className="whitespace-pre-wrap">{message.text}</p>
+              )}
+              {message.reply && (
+                <>
+                  <div className="text-xs text-slate-500 mb-4">
+                    OpenAI response · {message.reply.model}
+                    <p className="mt-1">
+                      Generated{" "}
+                      {new Date(message.reply.generatedAt).toLocaleString()} ·{" "}
+                      {message.reply.searchedThisTurn
+                        ? "Web search completed this turn"
+                        : "No new web search this turn"}
+                    </p>
+                  </div>
+                  {message.reply.blocks.map((block, index) => (
+                    <section key={index} className="mb-4 last:mb-0">
+                      <h3
+                        className={`text-xs font-bold uppercase tracking-wide mb-2 ${block.kind === "external_information" ? "text-blue-800" : block.kind === "workflow_rule" ? "text-amber-900" : "text-emerald-900"}`}
+                      >
+                        {kindLabels[block.kind]}
+                      </h3>
+                      <p className="whitespace-pre-wrap">{block.text}</p>
+                      {block.syntheticSourceIds.length > 0 && (
+                        <p className="text-xs text-slate-500 mt-2">
+                          Synthetic sources:{" "}
+                          {block.syntheticSourceIds
+                            .map((id) => {
+                              const source =
+                                notes.find((n) => n.id === id) ||
+                                events.find((e) => e.id === id);
+                              return `${id}${source ? " · " + ("date" in source ? source.date : source.publishedAt) : ""}`;
+                            })
+                            .join("; ")}
+                        </p>
+                      )}
+                      {block.webSourceUrls.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {block.webSourceUrls.map((url) => {
+                            const source = message.reply!.sources.find(
+                              (s) => s.url === url,
+                            );
+                            return source ? (
+                              <a
+                                key={url}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-800 underline inline-flex items-center gap-1"
+                              >
+                                {source.title}
+                                <ExternalLink className="w-3 h-3 shrink-0" />
+                              </a>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                  {message.reply.sources.length > 0 && (
+                    <section
+                      aria-label="Web sources"
+                      className="mt-4 pt-3 border-t border-slate-200 space-y-3"
+                    >
+                      <h3 className="text-xs font-semibold">
+                        External source dates &amp; retrieval
+                      </h3>
+                      {message.reply.sources.map((source) => (
+                        <div
+                          key={source.url}
+                          className="rounded-lg bg-blue-50 p-3 text-xs"
+                        >
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-blue-900 underline break-words"
+                          >
+                            {source.title}
+                          </a>
+                          <p className="mt-1">
+                            Publication date:{" "}
+                            {source.publishedAt ||
+                              "Not supplied in search metadata; see source"}
+                          </p>
+                          <p>
+                            Retrieved:{" "}
+                            {new Date(source.retrievedAt).toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                  {message.reply.workflow.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-slate-200 text-xs text-slate-600">
+                      Portfolio decisions unchanged:{" "}
+                      {message.reply.workflow
+                        .map((w) => `${w.name}: ${w.action} (${w.status})`)
+                        .join(" · ")}
+                    </div>
+                  )}
+                  <details className="mt-3 text-xs text-slate-500">
+                    <summary className="cursor-pointer">
+                      Response provenance
+                    </summary>
+                    <p className="mt-1 break-all">
+                      Responses API ID: {message.reply.responseId}. This
+                      identifies the completed API response; it is not proof
+                      that every claim is correct.
+                    </p>
+                  </details>
+                </>
+              )}
+            </article>
+          ))}
+          {busy && (
+            <p role="status" className="text-sm text-slate-600">
+              {ready
+                ? "Generating an answer; current questions may need web research…"
+                : "Unlocking private session…"}
+            </p>
+          )}
+          <div ref={end} />
+        </div>
+        <div className="p-3 border-t border-slate-200">
+          <div className="grid grid-cols-2 gap-2">
+            {prompts.map((prompt) => (
+              <button
+                key={prompt.label}
+                onClick={() => send(prompt.text, prompt.research)}
+                disabled={!ready || busy}
+                className="text-left rounded-lg border border-slate-200 p-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50"
+              >
+                {prompt.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            handleSendMessage();
+            void send();
           }}
-          className="flex items-center gap-2"
+          className="p-3 border-t border-slate-200 space-y-2"
         >
-          <input
-            type="text"
-            aria-label="Question for AI"
-            value={inputQuery}
-            onChange={(e) => setInputQuery(e.target.value)}
-            placeholder="Ask about prioritization, CRM notes, or market developments..."
-            disabled={isLoading || availability !== 'configured'}
-            className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-800 focus:border-emerald-800 disabled:bg-slate-100"
-          />
-          <button
-            type="submit"
-            disabled={!inputQuery.trim() || isLoading || availability !== 'configured'}
-            className="px-3.5 py-2 rounded bg-emerald-900 hover:bg-emerald-950 text-white text-xs font-semibold flex items-center gap-1 transition-colors shadow-xs disabled:opacity-40 cursor-pointer"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Send</span>
-          </button>
+          <label className="flex gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={research}
+              onChange={(e) => setResearch(e.target.checked)}
+              disabled={!ready || busy}
+            />
+            Require fresh web research (current questions also trigger this
+            automatically)
+          </label>
+          <div className="flex gap-2">
+            <textarea
+              aria-label="Question for AI"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              maxLength={4000}
+              rows={2}
+              placeholder="Ask about economics, markets or your clients…"
+              disabled={!ready || busy}
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 p-2 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!ready || busy || !input.trim()}
+              className="rounded-lg bg-emerald-800 px-3 text-white text-sm font-semibold flex items-center gap-1"
+            >
+              <Send className="w-4 h-4" />
+              Send
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Bounded server conversation · New conversation clears context, not
+            usage limits · Nothing sent to a client
+          </p>
         </form>
-
-        <p className="text-[10px] text-slate-400 mt-1.5 text-center">
-          Client Signals domain-restricted assistant · Answers strictly grounded in authorized fixtures.
-        </p>
       </div>
-
-    </div>
     </>
   );
-};
+}

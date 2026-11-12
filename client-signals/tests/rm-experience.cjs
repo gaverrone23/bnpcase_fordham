@@ -42,7 +42,7 @@ fs.mkdirSync(output, { recursive: true });
     await page.getByRole("button", { name: "Ask AI", exact: true }).click();
     const ai = () => page.getByRole("dialog", { name: "Ask AI", exact: true });
     await ai()
-      .getByText(/AI unavailable: Gemini API key is not configured/)
+      .getByText(/AI unavailable: OpenAI API key is not configured/)
       .waitFor();
     assert.ok(
       !(await ai()
@@ -376,7 +376,7 @@ fs.mkdirSync(output, { recursive: true });
     );
 
     const health = await page.request.get("/api/health");
-    assert.equal((await health.json()).hasGeminiKey, false);
+    assert.equal((await health.json()).copilot.configured, false);
     const offline = await page.request.post("/api/chat", {
       data: { message: "Compare Atlas and Apex" },
     });
@@ -388,15 +388,15 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(refresh.status(), 503);
     assert.equal((await refresh.json()).success, false);
     const malformed = await page.request.post("/api/chat", { data: {} });
-    assert.equal(malformed.status(), 400);
+    assert.equal(malformed.status(), 503);
     assert.deepEqual(errors, []);
     console.log(
       "PASS real missing-key APIs report unavailable rather than fake inference; no browser runtime errors",
     );
     // Transport-only test: simulate a configured health check and an HTML routing error.
     // This does NOT simulate successful AI inference.
-    await page.route("**/api/health", (route) =>
-      route.fulfill({ json: { status: "ok", hasGeminiKey: true } }),
+    await page.route("**/api/copilot/session", (route) =>
+      route.fulfill({ json: { configured:true, accessConfigured:true, authenticated:true } }),
     );
     await page.route("**/api/chat", (route) =>
       route.fulfill({
@@ -407,7 +407,7 @@ fs.mkdirSync(output, { recursive: true });
     );
     await page.getByRole("button", { name: "Ask AI", exact: true }).click();
     await ai()
-      .getByText(/Gemini key configured/)
+      .getByText(/Private session unlocked/)
       .waitFor();
     await ai()
       .getByRole("textbox", { name: "Question for AI" })
@@ -417,10 +417,10 @@ fs.mkdirSync(output, { recursive: true });
       .getByText("The chat endpoint did not return JSON.", { exact: true })
       .waitFor();
     console.log(
-      "PASS simulated HTML transport error is explicit; live Gemini inference NOT VERIFIED",
+      "PASS simulated HTML transport error is explicit; live OpenAI inference NOT VERIFIED",
     );
     await page.keyboard.press("Escape");
-    await page.unroute("**/api/health");
+    await page.unroute("**/api/copilot/session");
     await page.unroute("**/api/chat");
     await page.setViewportSize({ width: 1366, height: 900 });
     assert.ok(
