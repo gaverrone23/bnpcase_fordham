@@ -240,17 +240,18 @@ export function validateResearchAnswer(
         supplied.toLowerCase() === client.name.toLowerCase() ||
         supplied.toLowerCase() === client.name.split(" ")[0].toLowerCase()
       );
-      if (!matched) return fail("UNKNOWN_CLIENT_TAG");
-      declaredClients.push(matched.id);
+      // An invalid model metadata tag cannot become an authorized client.
+      // Drop it; the text and trusted CRM references are checked independently.
+      if (matched) declaredClients.push(matched.id);
     }
-    if (block.syntheticSourceIds.some((id: string) => !sourceIds.has(id)))
-      return fail("UNKNOWN_SOURCE_TAG");
+    const validDeclaredSources = (block.syntheticSourceIds as string[])
+      .filter((id) => sourceIds.has(id));
     const inlineIds =
       block.text.match(/\b(?:CRM|MKT|RES-BNP)-[A-Za-z0-9-]+\b/g) || [];
     if (inlineIds.some((id: string) => !sourceIds.has(id)))
       return fail("UNKNOWN_SOURCE_IN_ANSWER");
     const resolvedSources = [...new Set<string>([
-      ...block.syntheticSourceIds, ...inlineIds,
+      ...validDeclaredSources, ...inlineIds,
     ])];
     const resolvedClients = new Set<string>(declaredClients);
     for (const client of context.clients) {
@@ -301,7 +302,7 @@ export function validateResearchAnswer(
     if (kind === "general_explanation" && webUrls.length)
       kind = "analysis";
     if (
-      !block.webSourceUrls.length &&
+      !webUrls.length &&
       /\b(today|yesterday|latest|this (?:week|month|year)|as of \d)\b/i.test(
         block.text,
       ) &&
