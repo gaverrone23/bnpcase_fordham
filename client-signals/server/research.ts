@@ -220,9 +220,7 @@ export function validateResearchAnswer(
   );
   // On a completed search, a provider-returned URL is trustworthy as
   // a *consulted source*, not an automatic verification of every claim.
-  const currentSearchSources = searched
-    ? provenance.filter((s) => !/test-fixture/i.test(s.url))
-    : [];
+  const currentSearchSources = searched ? provenance : [];
   const sourceIds = new Set(
     [...context.notes, ...context.events].map((s) => s.id),
   );
@@ -265,6 +263,11 @@ export function validateResearchAnswer(
     }
     const validDeclaredSources = (block.syntheticSourceIds as string[])
       .filter((id) => sourceIds.has(id));
+    // A synthetic evidence block claiming an unknown CRM/event ID is not
+    // valid evidence. Reject it rather than silently relabeling the claim.
+    if (block.kind === "synthetic_evidence" &&
+        validDeclaredSources.length !== block.syntheticSourceIds.length)
+      return fail("UNKNOWN_SOURCE_TAG");
     const inlineIds =
       block.text.match(/\b(?:CRM|MKT|RES-BNP)-[A-Za-z0-9-]+\b/g) || [];
     if (inlineIds.some((id: string) => !sourceIds.has(id)))
