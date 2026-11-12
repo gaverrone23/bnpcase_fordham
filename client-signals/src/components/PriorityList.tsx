@@ -35,7 +35,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
   const countAll = opportunities.length;
 
   return (
-    <div className="flex flex-col h-full bg-white border-r border-slate-200">
+    <div className="flex flex-col h-full min-h-0 bg-white border-r border-slate-200">
       
       {/* Header & Filter Tabs */}
       <div className="p-4 border-b border-slate-200 bg-white">
@@ -111,7 +111,10 @@ export const PriorityList: React.FC<PriorityListProps> = ({
       </div>
 
       {/* List Feed */}
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100"
+        tabIndex={0}
+        aria-label="Client priorities list, scroll to review all clients"
+      >
         {filteredOpportunities.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-xs">
             No opportunities in this queue.
@@ -203,13 +206,13 @@ export const PriorityList: React.FC<PriorityListProps> = ({
 
                 <p className="text-xs font-bold text-emerald-900 mb-2">{bankerAction(opp).label}</p>
                 {/* Event Headline */}
-                <div className="text-xs text-slate-700 font-medium line-clamp-1 mb-2">
+                <div className="text-xs text-slate-700 font-medium break-words leading-relaxed mb-2">
                   <span className="text-slate-400 font-normal">Synthetic event: </span>
                   {event?.title}
                 </div>
 
                 {/* "Why Now" Kicker */}
-                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-white/70 p-2 rounded border border-slate-100 mb-2">
+                <p className="text-xs text-slate-600 break-words leading-relaxed bg-white/70 p-2 rounded border border-slate-100 mb-2">
                   <strong className="text-slate-800 font-semibold">Why Now: </strong>
                   {opp.whyNow}
                 </p>
