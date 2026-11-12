@@ -38,6 +38,8 @@ interface Availability {
   configured: boolean;
   accessConfigured: boolean;
   authenticated: boolean;
+  guestDemoEnabled?: boolean;
+  guest?: boolean;
   reason?: string | null;
   model?: string;
 }
@@ -90,7 +92,22 @@ export function AskClientSignalsDrawer({
     setChecking(true);
     setSessionError("");
     try {
-      setAvailability(await readJson(await fetch("/api/copilot/session")));
+      const status = await readJson(await fetch("/api/copilot/session"));
+      if (status.configured && status.accessConfigured && status.guestDemoEnabled && !status.authenticated) {
+        try {
+          const guest = await readJson(await fetch("/api/copilot/guest", {
+            method: "POST",
+            headers: requestHeaders,
+            body: "{}",
+          }));
+          setAvailability(guest);
+        } catch (e: any) {
+          setAvailability(status);
+          setSessionError("Guest demo unavailable: " + (e.message || "Access limit reached.") + " Private access code remains available.");
+        }
+      } else {
+        setAvailability(status);
+      }
     } catch {
       setAvailability(null);
       setSessionError(
@@ -309,7 +326,9 @@ export function AskClientSignalsDrawer({
                 ? "AI unavailable: server access control is not configured. An administrator must set a private access code."
                 : !availability.authenticated
                   ? "OpenAI is configured. Unlock this private demo to send budgeted requests. Model access is not yet verified."
-                  : "Private session unlocked · Requests use server-side budgets. Live answer provenance is shown per response."}
+                  : availability.guest
+                    ? "Temporary judge demo session · At most four questions per session. Live responses remain subject to shared usage limits."
+                    : "Private session unlocked · Requests use server-side budgets. Live answer provenance is shown per response."}
           {!ready && (
             <button
               onClick={checkAvailability}
