@@ -306,7 +306,7 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
     fullText: 'Simulated research publication for demonstration only. As the SOFR forward curve shifts upward in this scenario, corporate borrowers with floating-rate syndicated credit lines expiring over the next 3–6 months should evaluate pre-hedging through forward-starting interest rate swaps or interest rate caps to protect EBITDA covenants against persistent high-for-longer financing costs.',
     affectedAssetClasses: ['Forward Starting Swaps', 'SOFR Collars', 'Amortizing Swaps'],
     internalAuthor: 'Rates Solutions specialist · Simulated desk note',
-    complianceNote: 'Simulated research brief | Demo-only | Permitted for Corporate Banking RMs',
+    complianceNote: 'Simulated research brief | Demo-only | Illustrative access classification; not bank approval',
   },
   {
     id: 'MKT-2026-912',
