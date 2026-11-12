@@ -11,13 +11,18 @@ const app = createApiApp({
   port,
   key: process.env.CLIENT_SIGNALS_OPENAI_KEY || process.env.OPENAI_API_KEY,
   accessCode: process.env.COPILOT_ACCESS_CODE,
-  allowedOrigins: (process.env.COPILOT_ALLOWED_ORIGINS || "")
-    .split(",")
-    .map((s) => s.trim()),
+  allowedOrigins: [
+    "https://bnpcase-fordham.onrender.com",
+    ...(process.env.COPILOT_ALLOWED_ORIGINS || "")
+      .split(",")
+      .map((s) => s.trim()),
+  ],
   budgetFile: path.join(directory, ".cache", "copilot-daily-budget.json"),
-  judgeDemoUntil: process.env.JUDGE_DEMO_ENABLED === "true"
-    ? Date.parse("2026-11-14T05:00:00Z")
-    : undefined,
+  // Temporary competition guest access expires at Friday midnight New York.
+  // The optional false value remains an emergency off switch.
+  judgeDemoUntil: process.env.JUDGE_DEMO_ENABLED === "false"
+    ? undefined
+    : Date.parse("2026-11-14T05:00:00Z"),
 });
 if (process.env.NODE_ENV !== "production") {
   const { createServer } = await import("vite");
