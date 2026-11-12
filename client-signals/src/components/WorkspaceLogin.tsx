@@ -1,5 +1,5 @@
 import React,{useState} from "react";
-import { ShieldCheck, LockKeyhole, ArrowRight, Info } from "lucide-react";
+import { ShieldCheck, ArrowRight, Info } from "lucide-react";
 
 export function WorkspaceLogin({onSignIn}:{onSignIn:()=>void}){
   const [user,setUser]=useState("");

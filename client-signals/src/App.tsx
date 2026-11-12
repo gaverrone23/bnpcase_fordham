@@ -274,6 +274,7 @@ export default function App() {
     onUndo: undoDecision,
     onContinue: continuePriorities,
     onReview: (id: string) => recordDecision(id, "REVIEWED"),
+    onOpenChat: () => setIsChatOpen(true),
   };
 
   if (!workspaceUnlocked) return <WorkspaceLogin onSignIn={() => {setPersonaId("rm-primary");setWorkspaceUnlocked(true);}} />;
@@ -348,7 +349,7 @@ export default function App() {
         <span className="text-slate-500">{visibleClients.length} covered accounts · {persona.permissions.join(" / ")} permissions</span>
         <div className="flex-1"/>
         <button onClick={()=>setIsPolicyModalOpen(true)} className="underline text-emerald-900">Data &amp; governance</button>
-        <button aria-label="Sign out" onClick={()=>{setIsWorkspaceUnlocked(false);setIsChatOpen(false);setPersonaId("rm-primary");}} className="rounded border border-slate-300 px-2 py-1 text-slate-700">Sign out</button>
+        <button aria-label="Sign out" onClick={()=>{setWorkspaceUnlocked(false);setIsChatOpen(false);setPersonaId("rm-primary");}} className="rounded border border-slate-300 px-2 py-1 text-slate-700">Sign out</button>
       </div>
       {notice && (
         <div

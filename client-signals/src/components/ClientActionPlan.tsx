@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { SignalOpportunity } from "../types";
 import { bankerAction } from "../domain/workflow";
+import { DecisionBrief } from "./DecisionBrief";
 import {
   canRestoreDecision,
   portfolioBriefs,
@@ -17,6 +18,7 @@ interface Props {
   onReview: (id: string) => void;
   canEdit?: boolean;
   canComment?: boolean;
+  onOpenChat?: () => void;
 }
 export function ClientActionPlan({
   opportunity,
@@ -28,9 +30,11 @@ export function ClientActionPlan({
   onReview,
   canEdit = true,
   canComment = true,
+  onOpenChat,
 }: Props) {
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
+  const followUpDetails = React.useRef<HTMLDetailsElement>(null);
   const action = bankerAction(opportunity);
   const decisionLabel = {
     SURFACED: opportunity.priorityRank > 0 ? "Ready for review" : "Monitoring",
@@ -57,6 +61,17 @@ export function ClientActionPlan({
         </span>
       </div>
       <p className="text-sm leading-relaxed text-slate-700">{action.detail}</p>
+      <DecisionBrief
+        opportunity={opportunity}
+        tasks={tasks}
+        canComment={canComment}
+        onOpenChat={onOpenChat}
+        onPrepare={(suggested) => {
+          followUpDetails.current?.setAttribute("open", "");
+          if (canComment) setNote(suggested);
+          requestAnimationFrame(() => document.getElementById(`follow-up-${opportunity.id}`)?.scrollIntoView({behavior:"smooth",block:"center"}));
+        }}
+      />
       <div className="flex flex-wrap gap-3">
         {canEdit && opportunity.status === "SURFACED" && opportunity.priorityRank > 0 && (
           <button
@@ -84,6 +99,7 @@ export function ClientActionPlan({
         </button>
       </div>
       <details
+        ref={followUpDetails}
         key={opportunity.status}
         open={opportunity.status === "REVIEWED" || tasks.length > 0}
         className="border-t border-slate-100 pt-3"
