@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { ClientProfile, CRMNote, SignalOpportunity } from "../types";
 import { portfolioBriefs } from "../domain/clientWorkflow";
 import { ClientActionPlan } from "./ClientActionPlan";
@@ -24,19 +24,30 @@ export function MyPortfolio({
   onOpenSignals,
   ...plan
 }: Props) {
-  const client = clients.find((c) => c.id === clientId)!;
-  const opportunity = opportunities.find((o) => o.clientId === clientId)!;
-  const brief = portfolioBriefs[clientId];
+  const [query, setQuery] = useState("");
+  const client = clients.find((c) => c.id === clientId) || clients[0];
+  const opportunity = opportunities.find((o) => o.clientId === client?.id);
+  const brief = client ? portfolioBriefs[client.id] : undefined;
+  const shownClients = clients.filter(c =>
+    (c.name + " " + c.sector).toLowerCase().includes(query.toLowerCase())
+  );
   return (
     <div className="grid lg:grid-cols-[300px_minmax(0,1fr)] gap-6">
       <aside className="space-y-2" aria-label="Portfolio clients">
         <div className="mb-4">
           <h2 className="font-bold text-lg">My relationships</h2>
           <p className="text-sm text-slate-500 mt-1">
-            5 synthetic corporate clients
+            {clients.length} synthetic corporate clients · {opportunities.length} matched signals
           </p>
         </div>
-        {clients.map((c) => (
+        <label className="block text-xs text-slate-500 mb-2">
+          Find a relationship
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Search client or industry" className="block mt-1 w-full border rounded-lg p-2 text-sm"
+            aria-label="Search portfolio clients" />
+        </label>
+        <div className="space-y-2 max-h-[72vh] overflow-y-auto">
+        {shownClients.map((c) => (
           <button
             key={c.id}
             onClick={() => onSelectClient(c.id)}
@@ -50,6 +61,7 @@ export function MyPortfolio({
             </span>
           </button>
         ))}
+        </div>
       </aside>
       <section className="space-y-5 min-w-0" aria-label="Client portfolio">
         <div className="rounded-xl border border-slate-200 bg-white p-6">
@@ -76,14 +88,19 @@ export function MyPortfolio({
               </p>
             </div>
           </div>
-          <button
+          {opportunity && <button
             onClick={() => onOpenSignals(clientId)}
             className="mt-5 rounded-lg bg-emerald-800 text-white px-4 py-2 font-semibold text-sm"
           >
             View client signals &amp; evidence →
-          </button>
+          </button>}
+          {!opportunity && <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+            <strong>MONITOR · No qualified client-specific signal</strong>
+            <p className="mt-1 text-slate-600">{client.monitorReason || "No matching development is supported by the available demo evidence."}</p>
+            <p className="mt-2 text-xs text-slate-500">This is an evidence-coverage decision, not proof of no risk or no banking need.</p>
+          </div>}
         </div>
-        <div className="grid xl:grid-cols-2 gap-5">
+        {brief && <div className="grid xl:grid-cols-2 gap-5">
           {[
             ["Documented products & exposures", brief.products],
             ["Upcoming obligations & checks", brief.obligations],
@@ -104,8 +121,8 @@ export function MyPortfolio({
               </p>
             </section>
           ))}
-        </div>
-        <ClientActionPlan key={clientId} opportunity={opportunity} {...plan} />
+        </div>}
+        {opportunity && <ClientActionPlan key={clientId} opportunity={opportunity} {...plan} />}
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="font-bold text-lg">Historical CRM interactions</h2>
           <p className="text-xs text-slate-500 mt-1">
