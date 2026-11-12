@@ -284,7 +284,7 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
     fullText: 'SYNTHETIC SCENARIO — SGD/USD softens roughly 1.4% in early Asia trading as vessel bunching lengthens dwell times at Singapore and nearby feeder ports. Corporates with Southeast Asia freight expansion or multi-currency collections face higher FX and logistics working-capital volatility in this demo narrative. Not a verified live publication.',
     affectedAssetClasses: ['SGD/USD FX', 'Trade Working Capital', 'Documentary Collections'],
     marketShockMetric: 'SGD/USD −1.4% · Port dwell +2.1 days (synthetic)',
-  },,
+  },
 ];
 
 export const INITIAL_OPPORTUNITIES: SignalOpportunity[] = [
