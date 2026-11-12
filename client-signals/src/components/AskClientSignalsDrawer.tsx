@@ -284,7 +284,7 @@ export function AskClientSignalsDrawer({
   const prompts = [
     {
       label: "Explain my priorities",
-      text: "Why does Atlas rank ahead of Apex in the baseline, and what changes under the current scenario and banker decisions? Cite the synthetic CRM evidence.",
+      text: `In 120 words or fewer, explain the current priority of ${selectedClient?.name || "my leading client"} relative to my other authorized clients. Cite actual available CRM/source IDs, flag any uncertainty, and tell me the next banker-controlled action. If this client has no qualifying signal, say so clearly.`,
     },
     {
       label: "Research market developments",
@@ -293,11 +293,11 @@ export function AskClientSignalsDrawer({
     },
     {
       label: "Challenge an assumption",
-      text: "Challenge the assumption that a 25 bps Fed move means an identical borrowing-cost increase for Apex. What would we need to verify?",
+      text: `Challenge the most consequential assumption behind ${selectedClient?.name || "the current client"}'s present signal or monitoring status. In under 120 words, tell me what evidence supports it and what I should verify before outreach.`,
     },
     {
       label: "Prepare a client conversation",
-      text: `Help prepare a conversation or internal verification step for ${selectedClient?.name || "my clients"}. Give an objective and discovery questions while respecting current workflow safeguards.`,
+      text: `Prepare a concise banker-controlled next step for ${selectedClient?.name || "my current client"}: (1) whether to contact or verify first, (2) the recommended timing, (3) a one-sentence conversation objective, (4) two specific discovery questions, and (5) an internal follow-up task. Cite available synthetic CRM evidence. Do not assume an unverified exposure or pitch products.`,
     },
   ];
   return (
