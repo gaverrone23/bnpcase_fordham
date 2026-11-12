@@ -106,21 +106,31 @@ test("research requires an actual completed search and provider-supported citati
     true,
   );
   assert.equal(result.sources[0].retrievedAt, "2026-11-12T12:00:00Z");
-  assert.throws(
-    () =>
-      validateResearchAnswer(
-        answer([
-          block("external_information", "Claim", {
-            webSourceUrls: ["https://fake.example/"],
-          }),
-        ]),
-        ctx,
-        extracted.sources,
-        true,
-        true,
-      ),
-    /withheld/,
+  const filtered = validateResearchAnswer(
+    answer([
+      block("external_information", "Claim", {
+        webSourceUrls: ["https://fake.example/"],
+      }),
+    ]),
+    ctx,
+    extracted.sources,
+    true,
+    true,
   );
+  assert.deepEqual(filtered.blocks[0].webSourceUrls, [url]);
+  assert.ok(!JSON.stringify(filtered).includes("fake.example"));
+  const equivalent = validateResearchAnswer(
+    answer([
+      block("external_information", "A source-reported development.", {
+        webSourceUrls: ["https://www.federalreserve.gov/newsevents/pressreleases/test-fixture.htm?utm_source=synthetic"],
+      }),
+    ]),
+    ctx,
+    extracted.sources,
+    true,
+    true,
+  );
+  assert.deepEqual(equivalent.blocks[0].webSourceUrls, [url]);
 });
 test("unknown publication dates stay unknown; unsafe URLs do not become citations", () => {
   const data = response(answer(), true);
