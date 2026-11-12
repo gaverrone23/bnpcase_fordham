@@ -16,6 +16,8 @@ import {
   MAX_WEB_CALLS,
   type ResponsesTransport,
   CopilotError,
+  isClearlyOutOfScope,
+  OUT_OF_SCOPE_REPLY,
 } from "../server/research";
 import { DailyBudget, AttemptLimiter } from "../server/access";
 import { createApiApp } from "../server/app";
@@ -183,10 +185,18 @@ test("server derives workflow and client tags without accepting invalid evidence
   ], [{ clientId: "northstar-logistics", action: "ACT" }]);
   assert.equal(validateResearchAnswer(northstar, ctx, [], false, false).workflow[0].action, "VERIFY");
   assert.match(validateResearchAnswer(northstar, ctx, [], false, false).blocks[0].text, /Derek Kowalski/);
-  assert.throws(() => validateResearchAnswer(
-    answer([block("synthetic_evidence", "CRM fact", { syntheticSourceIds: ["FAKE"] })]),
+  const unknownMetadata = validateResearchAnswer(
+    answer([block("synthetic_evidence", "Synthetic client relationship notes require verification.", { syntheticSourceIds: ["FAKE"] })]),
     ctx, [], false, false,
-  ), /withheld/);
+  );
+  assert.equal(unknownMetadata.blocks[0].kind, "analysis");
+  assert.deepEqual(unknownMetadata.blocks[0].syntheticSourceIds, []);
+  const mixedMetadata = validateResearchAnswer(
+    answer([block("synthetic_evidence", "CRM-8812 notes Atlas' milestone payment.", { syntheticSourceIds: ["FAKE", "CRM-8812"] })]),
+    ctx, [], false, false,
+  );
+  assert.equal(mixedMetadata.blocks[0].kind, "synthetic_evidence");
+  assert.deepEqual(mixedMetadata.blocks[0].syntheticSourceIds, ["CRM-8812"]);
   assert.throws(() => validateResearchAnswer(
     answer([block("analysis", "CRM-9999 confirms an invented fact")]),
     ctx, [], false, false,
@@ -195,6 +205,52 @@ test("server derives workflow and client tags without accepting invalid evidence
     answer([block("analysis", "Atlas moved 1.82%", { clientIds: ["atlas-mfg"] })]),
     ctx, [], false, false,
   ), /withheld/);
+});
+test("RM copilot professional scope accepts legitimate broad work and rejects unrelated personal questions", () => {
+  for (const prompt of [
+    "Give me a chocolate cake recipe",
+    "How do I make pizza dough?",
+    "Tell me my horoscope",
+    "What are the football scores?",
+  ]) assert.equal(isClearlyOutOfScope(prompt), true, prompt);
+  for (const prompt of [
+    "Who should I reach out to today?",
+    "Explain the macroeconomic impact of tariff changes",
+    "Prepare a meeting with our CEO",
+    "Help assess loan covenants for a borrower",
+    "How do I evaluate chocolate cake ingredients as a food industry client?",
+    "Analyze the cost of catering for a corporate client event",
+    "What is the latest Federal Reserve decision?",
+  ]) assert.equal(isClearlyOutOfScope(prompt), false, prompt);
+  assert.match(OUT_OF_SCOPE_REPLY, /banking/);
+});
+test("out-of-scope requests are blocked before consuming OpenAI credits", async () => {
+  let paid = 0;
+  await testServer(
+    async (base, origin) => {
+      const headers = { "Content-Type": "application/json", Origin: origin, "X-Client-Signals": "copilot" };
+      const login = await fetch(base + "/api/copilot/session", {
+        method: "POST", headers,
+        body: JSON.stringify({ code: "test-access-code-not-a-real-secret" }),
+      });
+      assert.equal(login.status, 200);
+      const cookie = login.headers.get("set-cookie")!.split(";")[0];
+      const rejected = await fetch(base + "/api/chat", {
+        method: "POST", headers: { ...headers, Cookie: cookie },
+        body: JSON.stringify({ message: "Give me a chocolate cake recipe" }),
+      });
+      assert.equal(rejected.status, 422);
+      assert.match((await rejected.json()).error, /outside Client Signals' scope/);
+      assert.equal(paid, 0);
+      const allowed = await fetch(base + "/api/chat", {
+        method: "POST", headers: { ...headers, Cookie: cookie },
+        body: JSON.stringify({ message: "Who should I reach out to today?" }),
+      });
+      assert.equal(allowed.status, 200);
+      assert.equal(paid, 1);
+    },
+    async () => { paid++; return response(); },
+  );
 });
 test("Responses request uses bounded documented tools/model and only server-held history", async () => {
   let body: any;
