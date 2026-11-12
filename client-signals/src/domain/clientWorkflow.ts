@@ -15,6 +15,7 @@ export function restoreDecision(
   const seed = INITIAL_OPPORTUNITIES.find((o) => o.id === opportunity.id);
   if (
     !seed ||
+    opportunity.evidenceGap ||
     seed.status === "SUPPRESSED" ||
     seed.status === "VERIFY_FIRST" ||
     opportunity.status === "SURFACED"
@@ -45,7 +46,7 @@ export function restoreDecision(
 
 export function canRestoreDecision(opportunity: SignalOpportunity) {
   const seed = INITIAL_OPPORTUNITIES.find((o) => o.id === opportunity.id);
-  return seed?.status === "SURFACED" && opportunity.status !== "SURFACED";
+  return seed?.status === "SURFACED" && opportunity.status !== "SURFACED" && !opportunity.evidenceGap;
 }
 
 // Summaries are extracted from the existing synthetic CRM fixtures, not transaction records.

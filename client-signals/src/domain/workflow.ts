@@ -1,5 +1,6 @@
-import { INITIAL_CLIENTS, INITIAL_OPPORTUNITIES, SIMULATION_FED_RATE_HIKE_EVENT, SIMULATION_UPDATED_EVENT } from '../data/fixtures';
+import { INITIAL_CLIENTS, INITIAL_CRM_NOTES, INITIAL_MARKET_DEVELOPMENTS, INITIAL_OPPORTUNITIES, SIMULATION_FED_RATE_HIKE_EVENT, SIMULATION_UPDATED_EVENT } from '../data/fixtures';
 import type { SignalOpportunity, MarketIntelligenceReport } from '../types';
+import { applySignalEvidenceGate } from './signalEvidence';
 
 export type FilterTab = 'TOP_3_ACTIONABLE' | 'NEEDS_VERIFICATION' | 'SUPPRESSED' | 'ALL_PORTFOLIO';
 export type Simulation = 'NONE' | 'FED_RATE_HIKE' | 'USTR_EXEMPTION' | 'QUIET_MARKET';
@@ -28,10 +29,10 @@ export function bankerAction(opportunity: SignalOpportunity) {
   if (opportunity.status === 'SURFACED' && opportunity.priorityRank === 0) return { label: 'MONITOR · No active market signal', detail: 'No new actionable shock in this scenario. Review relationship records or prepare routine follow-ups; end the simulation to return to baseline signals without clearing your work.' };
   if (opportunity.status === 'SUPPRESSED') return { label: 'SUPPRESS · No outreach on canceled expansion', detail: 'CRM-7702 supersedes CRM-6910. Review updated account information only if a distinct current exposure is documented; no new opportunity is established.' };
   if (opportunity.status === 'VERIFY_FIRST') return {
-    label: 'VERIFY · Confirm current intent before outreach',
-    detail: opportunity.clientId === 'northstar-logistics'
+    label: opportunity.evidenceGap ? 'VERIFY · Confirm source evidence before outreach' : 'VERIFY · Confirm current intent before outreach',
+    detail: opportunity.evidenceGap ?? (opportunity.clientId === 'northstar-logistics'
       ? 'Ask Derek Kowalski whether the Asian capex pause in CRM-7210 still applies, whether it is temporary or permanent, and whether any treasury need from CRM-6502 remains active. Record confirmation before proposing solutions.'
-      : 'Confirm the client’s current exposure, payment or reset terms, and decision timing with treasury before proposing solutions.',
+      : 'Confirm the client’s current exposure, payment or reset terms, and decision timing with treasury before proposing solutions.'),
   };
   if (opportunity.status === 'REVIEWED') return { label: 'REVIEW RECORDED · Nothing sent', detail: 'Prepare the conversation objective and discovery questions below, then record the internal follow-up you will take. Confirm current circumstances and suitability before outreach; nothing has been sent.' };
   if (opportunity.status === 'DEFERRED') return { label: 'DEFERRED · Revisit in 48 hours', detail: 'Removed from the actionable queue. Review updated evidence before resuming outreach.' };
@@ -48,11 +49,18 @@ export function bankerAction(opportunity: SignalOpportunity) {
 export function simulateMarket(scenario: Simulation, previous: SignalOpportunity[]) {
   const baseline = INITIAL_OPPORTUNITIES.map(seed => {
     const current = previous.find(o => o.id === seed.id) || seed;
-    return { ...current, ...seed, status: current.status,
-      ...(current.status === 'VERIFY_FIRST' ? { priorityTier: 'Needs Verification' as const } : {}), auditTrail: current.auditTrail.filter(a => !['MARKET_SCENARIO', 'QUIET_MARKET_EVALUATION'].includes(a.action)) };
+    // Evidence is checked again for the new scenario; banker decisions are retained.
+    const { evidenceGap, ...decision } = current;
+    const status = evidenceGap ? seed.status : decision.status;
+    return { ...decision, ...seed, status,
+      ...(status === 'VERIFY_FIRST' ? { priorityTier: 'Needs Verification' as const } : {}), auditTrail: current.auditTrail.filter(a => !['MARKET_SCENARIO', 'QUIET_MARKET_EVALUATION'].includes(a.action)) };
   });
-  if (scenario === 'NONE') return { opportunities: baseline, report: null, event: null };
-  const opportunities: SignalOpportunity[] = baseline.map(opp => {
+  if (scenario === 'NONE') return {
+    opportunities: applySignalEvidenceGate(baseline, INITIAL_CRM_NOTES, INITIAL_MARKET_DEVELOPMENTS),
+    report: null,
+    event: null,
+  };
+  const candidates: SignalOpportunity[] = baseline.map(opp => {
     if (scenario === 'QUIET_MARKET') return { ...opp, priorityRank: 0 }; // No invented banker approval.
     if (scenario === 'FED_RATE_HIKE') {
       if (opp.clientId === 'apex-biotech') return {
@@ -65,12 +73,13 @@ export function simulateMarket(scenario: Simulation, previous: SignalOpportunity
     }
     if (scenario === 'USTR_EXEMPTION' && opp.clientId === 'atlas-mfg') return {
       ...opp, eventId: SIMULATION_UPDATED_EVENT.id,
-      whyNow: 'Hypothetical 90-day tariff waiver on German CNC equipment: confirm customs eligibility and shipment timing. Atlas’s documented payment window and unhedged EUR balance remain relevant; the waiver does not remove FX risk.',
+      whyNow: 'An unverified synthetic alert suggests a 90-day tariff waiver on German CNC equipment. Confirm the source, customs eligibility, and shipment timing before relying on the waiver. Atlas’s documented EUR payment remains relevant.',
       financialImpactHypothesis: 'FX sensitivity remains $326,612.50 versus the 1.0820 reference. Any duty saving depends on customs valuation and eligibility; no dollar duty saving is confirmed.',
     };
     return opp;
   });
   const event = scenario === 'FED_RATE_HIKE' ? SIMULATION_FED_RATE_HIKE_EVENT : SIMULATION_UPDATED_EVENT;
+  const opportunities = applySignalEvidenceGate(candidates, INITIAL_CRM_NOTES, [event, ...INITIAL_MARKET_DEVELOPMENTS]);
   const rankLabel = (opp: SignalOpportunity) => opp.status === 'SURFACED' && opp.priorityRank > 0 ? `#${opp.priorityRank} Priority` : opp.status.replaceAll('_', ' ');
   const report: MarketIntelligenceReport | null = scenario === 'QUIET_MARKET' ? null : {
     id: `REP-${scenario}`, headline: `SIMULATED · ${event.title}`, eventTimestamp: event.publishedAt,
@@ -85,11 +94,12 @@ export function simulateMarket(scenario: Simulation, previous: SignalOpportunity
           : opp.clientId === 'meridian-freight' ? 'Unchanged: November 30 cash-pooling RFP (CRM-8115); no documented direct link to this rate scenario.'
           : opp.clientId === 'northstar-logistics' ? 'Unchanged: conflicting Asian expansion records still require verification; no new exposure established.'
           : 'Unchanged: canceled Mexico expansion remains suppressed under CRM-7702.'
-        : opp.clientId === 'atlas-mfg' ? 'Tariff-waiver eligibility needs confirmation; unpaid EUR balance still exposed. Atlas retains #1 review priority.' : 'No documented client-specific change from this scenario; eligibility and evidence remain unchanged.',
+        : opp.clientId === 'atlas-mfg' ? 'The unverified waiver cannot support outreach. The unpaid EUR balance remains a separate exposure.' : 'No documented client-specific change from this scenario; eligibility and evidence remain unchanged.',
+      ...(opp.evidenceGap ? { statusChange: opp.evidenceGap } : {}),
     })),
     rankingRationale: scenario === 'FED_RATE_HIKE'
       ? 'Demo ranking rule: potential near-term SOFR reset sensitivity places Apex before Atlas’s equipment-payment FX review. This is a qualitative scenario assumption, not a live forecast or a confirmed borrowing-rate change. Meridian, Northstar and Harbor remain unchanged.'
-      : 'Atlas retains #1 review priority: the hypothetical waiver adds a customs eligibility check without removing its documented FX exposure. No new opportunity is inferred for other clients.',
+      : 'An unverified waiver source cannot qualify for Act. Existing banker decisions and documented FX exposure still apply.',
     newStatusSummary: 'Scenario applied; existing banker decisions preserved. No outreach sent.',
   };
   return { opportunities, report, event: scenario === 'QUIET_MARKET' ? null : event };

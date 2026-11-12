@@ -208,6 +208,8 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
 export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
   {
     id: 'MKT-2026-904',
+    provenance: 'SYNTHETIC',
+    verification: 'VERIFIED',
     title: 'EUR/USD Surges +2.45% to 1.1085 Following ECB Hawkish Rate Guidance',
     publishedAt: '2026-11-11 07:15 EST',
     publisher: 'Synthetic Newswire',
@@ -219,6 +221,8 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
   },
   {
     id: 'RES-BNP-402',
+    provenance: 'SYNTHETIC',
+    verification: 'VERIFIED',
     title: 'EUR/USD Breakout: Importers Review FX Forward Layering Ahead of 1.1150',
     publishedAt: '2026-11-11 06:30 EST',
     publisher: 'Simulated Internal Research · FX Solutions',
@@ -227,10 +231,12 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
     fullText: 'Simulated research brief for demonstration only. With spot EUR/USD breaking resistance in this scenario, mid-sized corporate importers with unhedged Euro-denominated capital expenditure invoices due within 30–90 days face material budget slippage risk. Desk note: a participating forward or structured vanilla forward can illustrate capping upside invoice cost near 1.1120 while retaining partial downside participation if spot mean-reverts. Contact: FX Solutions specialist (role-based; no named individual).',
     affectedAssetClasses: ['EUR Forward Contracts', 'Window Forwards', 'FX Options Collar'],
     internalAuthor: 'FX Solutions specialist · Simulated desk note',
-    complianceNote: 'Simulated research brief | Demo-only | Permitted for Commercial Corporate Banking RMs',
+    complianceNote: 'Simulated research brief | Demo-only | Illustrative access classification, not bank approval',
   },
   {
     id: 'MKT-2026-908',
+    provenance: 'SYNTHETIC',
+    verification: 'VERIFIED',
     title: 'U.S. 10-Year Treasury Yield Jumps 24 bps to 4.48% on Resilient Wage Print',
     publishedAt: '2026-11-11 06:45 EST',
     publisher: 'Synthetic Newswire',
@@ -242,6 +248,8 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
   },
   {
     id: 'RES-BNP-415',
+    provenance: 'SYNTHETIC',
+    verification: 'VERIFIED',
     title: 'Pre-Hedging Floating Rate Liabilities Ahead of Q1 Liquidity Refinancing',
     publishedAt: '2026-11-10 16:00 EST',
     publisher: 'Simulated Internal Research · Rates Solutions',
@@ -254,6 +262,8 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
   },
   {
     id: 'MKT-2026-912',
+    provenance: 'SYNTHETIC',
+    verification: 'VERIFIED',
     title: 'EU Enacts Revised Transnational Cash Pooling & Liquidity Capital Directives',
     publishedAt: '2026-11-09 10:00 CET',
     publisher: 'Synthetic Newswire',
@@ -265,6 +275,8 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
   },
   {
     id: 'MKT-2026-920',
+    provenance: 'SYNTHETIC',
+    verification: 'VERIFIED',
     title: 'North American Trade Committee Announces 15% Tariff on Cross-Border Auto Parts',
     publishedAt: '2026-11-10 14:30 EST',
     publisher: 'Synthetic Newswire',
@@ -276,6 +288,8 @@ export const INITIAL_MARKET_DEVELOPMENTS: MarketDevelopment[] = [
   },
   {
     id: 'MKT-2026-925',
+    provenance: 'SYNTHETIC',
+    verification: 'VERIFIED',
     title: 'SGD Softens 1.4% as Singapore Port Congestion Hits SE Asia Freight Corridors',
     publishedAt: '2026-11-11 05:50 EST',
     publisher: 'Synthetic Newswire',
@@ -292,6 +306,7 @@ export const INITIAL_OPPORTUNITIES: SignalOpportunity[] = [
   {
     id: 'OPP-001-ATLAS',
     clientId: 'atlas-mfg',
+    clientNoteIds: ['CRM-8812'],
     eventId: 'MKT-2026-904',
     internalResearchId: 'RES-BNP-402',
     status: 'SURFACED',
@@ -335,6 +350,7 @@ export const INITIAL_OPPORTUNITIES: SignalOpportunity[] = [
   {
     id: 'OPP-002-APEX',
     clientId: 'apex-biotech',
+    clientNoteIds: ['CRM-7901'],
     eventId: 'MKT-2026-908',
     internalResearchId: 'RES-BNP-415',
     status: 'SURFACED',
@@ -372,6 +388,7 @@ export const INITIAL_OPPORTUNITIES: SignalOpportunity[] = [
   {
     id: 'OPP-003-MERIDIAN',
     clientId: 'meridian-freight',
+    clientNoteIds: ['CRM-8115'],
     eventId: 'MKT-2026-912',
     status: 'SURFACED',
     priorityRank: 3,
@@ -469,8 +486,10 @@ export const INITIAL_OPPORTUNITIES: SignalOpportunity[] = [
 ];
 
 // Scenario 1: USTR Emergency Tariff Waiver on CNC Machinery
-export const SIMULATION_UPDATED_EVENT: MarketDevelopment = {
+export const SIMULATION_UPDATED_EVENT = {
   id: 'MKT-2026-999-EMERGENCY',
+  provenance: 'SYNTHETIC',
+  verification: 'UNVERIFIED',
   title: 'USTR Issues Immediate 90-Day Tariff Exemption on German CNC Precision Equipment',
   publishedAt: '2026-11-11 08:25 EST',
   publisher: 'Synthetic Newswire · Demo scenario',
@@ -479,11 +498,13 @@ export const SIMULATION_UPDATED_EVENT: MarketDevelopment = {
   fullText: 'WASHINGTON — The Office of the United States Trade Representative announced a temporary 90-day tariff waiver for specialized industrial machine tools imported from EU member states. Trade analysts note this saves U.S. importers approximately 8.5% in customs levies (~$1.2M USD on typical tooling lines) but establishes a firm 90-day window to complete customs clearance, heightening the urgency to finalize hedging and letters of credit.',
   affectedAssetClasses: ['Import Letters of Credit', 'Trade Working Capital', 'EUR/USD Hedging Window'],
   marketShockMetric: 'Immediate Tariff Cost Exemption (saving 8.5% customs levy)',
-};
+} satisfies MarketDevelopment;
 
 // Scenario 2: Federal Reserve 25 bps Rate Increase
-export const SIMULATION_FED_RATE_HIKE_EVENT: MarketDevelopment = {
+export const SIMULATION_FED_RATE_HIKE_EVENT = {
   id: 'MKT-2026-980-FED',
+  provenance: 'SYNTHETIC',
+  verification: 'VERIFIED',
   title: 'Federal Open Market Committee Announces 25 bps Policy Rate Increase to 5.50%',
   publishedAt: '2026-11-11 14:00 EST',
   publisher: 'Synthetic Newswire · Demo scenario',
@@ -492,7 +513,7 @@ export const SIMULATION_FED_RATE_HIKE_EVENT: MarketDevelopment = {
   fullText: 'WASHINGTON — The Federal Open Market Committee concluded its unscheduled meeting by raising the target range for the federal funds rate by 25 basis points to 5.25%–5.50%. The committee emphasized that terminal borrowing rates will remain restrictive for longer. This hypothetical policy change does not establish an identical SOFR move. Any facility repricing depends on its reset date, index, margin, floor/cap and hedge coverage.',
   affectedAssetClasses: ['Term SOFR', 'Interest Rate Swaps', 'Floating-Rate Facilities', 'Revolving Credit Lines'],
   marketShockMetric: 'Policy Rate +25 bps (Target: 5.25% - 5.50%)',
-};
+} satisfies MarketDevelopment;
 
 export const SIMULATED_POLICY_RULES: PolicyRule[] = [
   {

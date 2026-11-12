@@ -58,7 +58,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'EVIDENCE' | 'CLIENT_PROFILE' | 'AUDIT_LOG'>('EVIDENCE');
 
-  if (!client || !event) {
+  if (!client) {
     return (
       <div className="flex-1 flex items-center justify-center p-12 text-slate-400 text-sm">
         Select a client opportunity from the priority queue to inspect evidence.
@@ -187,7 +187,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                   Market Trigger:
                 </span>
                 <p className="text-slate-600">
-                  {event.title} ({event.publisher})
+                  {event ? `${event.title} (${event.publisher})` : 'Market source unavailable'}
                 </p>
               </div>
 
@@ -222,7 +222,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <p className="text-sm leading-relaxed text-amber-950">
               {client.id === 'northstar-logistics'
                 ? 'CRM-6502 (June 12, 2026): former VP Alan Miller described Southeast Asian expansion and treasury needs. CRM-7210 (September 28, 2026): Finance Director Derek Kowalski reported a board pause on Asian capex. It is not established that the earlier plans remain active, whether the pause is temporary or permanent, or whether a treasury need survives it. The synthetic Singapore FX/port disruption matches the historical Asian corridor thesis, but conflicting notes prevent outreach until the current plans and treasury needs are verified.'
-                : 'The banker has requested confirmation of this client’s current exposure and terms. This suggestion stays outside the actionable queue until verification; no outreach is approved.'}
+                : opportunity.evidenceGap ?? 'The banker has requested confirmation of this client’s current exposure and terms. This suggestion stays outside the actionable queue until verification; no outreach is approved.'}
             </p>
           </div>
         )}
@@ -368,17 +368,17 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
               </span>
 
               {/* Public Market Event */}
-              <div className="p-3.5 rounded bg-slate-50 border border-slate-200 space-y-2">
+              {event ? <div className="p-3.5 rounded bg-slate-50 border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                     <Globe2 className="w-3.5 h-3.5 text-slate-500" />
-                    Synthetic market record · {event.id}
+                    {event.provenance === 'SYNTHETIC' ? 'Synthetic market record' : 'Market record'} · {event.id}
                   </span>
                   <span className="font-mono text-slate-400 text-[11px]">
-                    {event.publishedAt}
+                    {event.publishedAt || 'Timestamp unavailable'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">{event.publisher} · Fictional scenario, not a verified publication</p>
+                <p className="text-xs text-slate-500">{event.publisher} · {event.verification === 'UNVERIFIED' ? 'Unverified' : event.provenance === 'SYNTHETIC' ? 'Evidence complete (synthetic)' : 'Verified'}</p>
                 <h4 className="text-sm font-bold text-slate-900">
                   {event.title}
                 </h4>
@@ -390,7 +390,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                     Market Metric: {event.marketShockMetric}
                   </div>
                 )}
-              </div>
+              </div> : <p className="text-xs text-amber-900">Market source missing.</p>}
 
               {/* Internal Research Brief (If present) */}
               {internalResearch && (
