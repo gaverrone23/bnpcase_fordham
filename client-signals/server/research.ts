@@ -178,20 +178,21 @@ export function validateResearchAnswer(
   searched: boolean,
   researchRequired: boolean,
 ): Pick<CopilotReply, "blocks" | "sources" | "workflow"> {
-  const fail = () => {
+  const fail = (reason = "EVIDENCE_VALIDATION") => {
+    // Safe diagnostic code only: never log or expose client content, credentials,
+    // raw provider output or private source text.
     throw new CopilotError(
       422,
-      "AI answer withheld: evidence or workflow validation failed. No portfolio data changed.",
+      `AI answer withheld [${reason}]. No portfolio data changed.`,
     );
   };
   if (
     !Array.isArray(parsed?.blocks) ||
     !parsed.blocks.length ||
     parsed.blocks.length > 6 ||
-    !Array.isArray(parsed.workflow) ||
-    parsed.workflow.length > 5
+    !Array.isArray(parsed.workflow)
   )
-    return fail();
+    return fail("RESPONSE_SHAPE");
   if (researchRequired && (!searched || !provenance.length))
     throw new CopilotError(
       422,
@@ -228,23 +229,30 @@ export function validateResearchAnswer(
           block[k].every((x: unknown) => typeof x === "string"),
       )
     )
-      return fail();
+      return fail("BLOCK_FORMAT");
     // Recover client tags when the model uses a valid client name or a
     // genuine CRM record but forgets a structured clientIds entry.
     // Unknown client/source references still fail closed.
-    if (
-      block.clientIds.some((id: string) =>
-        !context.opportunities.some((o) => o.clientId === id)
-      ) ||
-      block.syntheticSourceIds.some((id: string) => !sourceIds.has(id))
-    ) return fail();
+    const declaredClients: string[] = [];
+    for (const supplied of block.clientIds as string[]) {
+      const matched = context.clients.find((client) =>
+        supplied.toLowerCase() === client.id.toLowerCase() ||
+        supplied.toLowerCase() === client.name.toLowerCase() ||
+        supplied.toLowerCase() === client.name.split(" ")[0].toLowerCase()
+      );
+      if (!matched) return fail("UNKNOWN_CLIENT_TAG");
+      declaredClients.push(matched.id);
+    }
+    if (block.syntheticSourceIds.some((id: string) => !sourceIds.has(id)))
+      return fail("UNKNOWN_SOURCE_TAG");
     const inlineIds =
       block.text.match(/\b(?:CRM|MKT|RES-BNP)-[A-Za-z0-9-]+\b/g) || [];
-    if (inlineIds.some((id: string) => !sourceIds.has(id))) return fail();
+    if (inlineIds.some((id: string) => !sourceIds.has(id)))
+      return fail("UNKNOWN_SOURCE_IN_ANSWER");
     const resolvedSources = [...new Set<string>([
       ...block.syntheticSourceIds, ...inlineIds,
     ])];
-    const resolvedClients = new Set<string>(block.clientIds);
+    const resolvedClients = new Set<string>(declaredClients);
     for (const client of context.clients) {
       const alias = client.name.split(" ")[0];
       const noteMention = context.notes.some((n) =>
@@ -257,33 +265,49 @@ export function validateResearchAnswer(
     const clientIds = [...resolvedClients];
     for (const id of clientIds) {
       const opp = context.opportunities.find((o) => o.clientId === id);
-      if (!opp) return fail();
+      if (!opp) return fail("UNKNOWN_CLIENT");
       workflow.set(id, actionFor(opp));
     }
-    if (block.kind === "synthetic_evidence" && !resolvedSources.length)
-      return fail();
-    if (block.kind === "external_information" && !block.webSourceUrls.length)
-      return fail();
-    if (
-      block.kind === "general_explanation" &&
-      (block.syntheticSourceIds.length || block.webSourceUrls.length)
-    )
-      return fail();
-    for (const value of block.webSourceUrls) {
+    // Models sometimes use a wrong CATEGORY for a valid explanation.
+    // Normalize the category while keeping the source and text checks strict.
+    let kind: AnswerBlock["kind"] = block.kind;
+    if (kind === "synthetic_evidence" && !resolvedSources.length)
+      kind = "analysis"; // Not presented as sourced evidence.
+    if (kind === "general_explanation" && resolvedSources.length)
+      kind = "analysis";
+    let webUrls: string[] = [];
+    for (const value of block.webSourceUrls as string[]) {
       const url = safeSourceUrl(value);
-      if (!url || !sourceMap.has(url)) return fail();
+      if (!url || !sourceMap.has(url)) {
+        if (researchRequired) return fail("UNVERIFIED_WEB_CITATION");
+        // Never show a model-invented link as a citation in a portfolio answer.
+        continue;
+      }
+      webUrls.push(url);
       used.add(url);
     }
-    if (block.kind === "external_information" && !provenance.length)
-      return fail();
+    if (kind === "external_information" && !webUrls.length) {
+      if (researchRequired) {
+        // Use a citation confirmed by this exact completed web-search call.
+        // The server, not the model, selects the provider-supported link.
+        if (!searched || !provenance.length) return fail("MISSING_WEB_CITATION");
+        webUrls = provenance.slice(0, 2).map((s) => s.url);
+        for (const url of webUrls) used.add(url);
+      } else {
+        // Synthetic market commentary is NOT externally verified news.
+        kind = "analysis";
+      }
+    }
+    if (kind === "general_explanation" && webUrls.length)
+      kind = "analysis";
     if (
       !block.webSourceUrls.length &&
       /\b(today|yesterday|latest|this (?:week|month|year)|as of \d)\b/i.test(
         block.text,
       ) &&
-      block.kind === "external_information"
+      kind === "external_information"
     )
-      return fail();
+      return fail("CURRENT_EVENT_UNCITED");
     const gated = clientIds.filter((id: string) =>
       ["SUPPRESSED", "VERIFY_FIRST"].includes(
         context.opportunities.find((o) => o.clientId === id)!.status,
@@ -309,9 +333,9 @@ export function validateResearchAnswer(
       }
     } else {
       if (clientIds.includes("atlas-mfg") && /1\.82\s*%/.test(block.text))
-        return fail();
+        return fail("OUTDATED_ATLAS_FX_MATH");
       blocks.push({
-        kind: block.kind,
+        kind,
         // Search's native citation glyphs are replaced by verified clickable source
         // links below the block, never shown as unexplained internal markers.
         text: block.text
@@ -319,13 +343,11 @@ export function validateResearchAnswer(
           .trim(),
         clientIds,
         syntheticSourceIds: resolvedSources,
-        webSourceUrls: block.webSourceUrls.map(
-          (u: string) => safeSourceUrl(u)!,
-        ),
+        webSourceUrls: webUrls,
       });
     }
   }
-  if (researchRequired && !used.size) return fail();
+  if (researchRequired && !used.size) return fail("LIVE_RESEARCH_UNCITED");
   return {
     blocks,
     sources: provenance.filter((s) => used.has(s.url)),
