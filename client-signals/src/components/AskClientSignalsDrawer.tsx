@@ -22,6 +22,7 @@ interface Props {
   selectedClient?: ClientProfile;
   selectedOpportunity?: SignalOpportunity;
   clients: ClientProfile[];
+  personaId?: string;
   opportunities: SignalOpportunity[];
   notes: CRMNote[];
   events: MarketDevelopment[];
@@ -60,6 +61,7 @@ export function AskClientSignalsDrawer({
   isOpen,
   onClose,
   selectedClient,
+  personaId,
   opportunities,
   notes,
   events,
@@ -195,6 +197,7 @@ export function AskClientSignalsDrawer({
           selectedClientId: selectedClient?.id,
           context: {
             simulation,
+            personaId,
             opportunities: opportunities.map((o) => ({
               id: o.id,
               status: o.status,
