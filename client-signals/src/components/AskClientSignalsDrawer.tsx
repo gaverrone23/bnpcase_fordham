@@ -186,7 +186,7 @@ export function AskClientSignalsDrawer({
     setInput("");
     setBusy(true);
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/chat/stream", {
         method: "POST",
         headers: requestHeaders,
         body: JSON.stringify({
@@ -204,7 +204,37 @@ export function AskClientSignalsDrawer({
       });
       if (response.status === 401)
         setAvailability((a) => (a ? { ...a, authenticated: false } : a));
-      const data = await readJson(response);
+      let data: any;
+      if (response.headers.get("content-type")?.includes("application/x-ndjson")) {
+        if (!response.body) throw new Error("Research response stream unavailable.");
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamError: string | null = null;
+        const handle = (line: string) => {
+          if (!line.trim()) return;
+          const item = JSON.parse(line);
+          if (item.type === "result") data = item.data;
+          if (item.type === "error") streamError = item.error || "Research unavailable.";
+        };
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) handle(line);
+        }
+        buffer += decoder.decode();
+        if (buffer.trim()) handle(buffer);
+        if (streamError) throw new Error(streamError);
+        if (!data)
+          throw new Error("Research stream ended without an answer. Please avoid retrying repeatedly.");
+      } else if (response.headers.get("content-type")?.includes("application/json")) {
+        data = await readJson(response);
+      } else {
+        throw new Error(`Research gateway returned HTTP ${response.status} instead of an AI response. It may have timed out or restarted.`);
+      }
       if (
         !data.success ||
         data.provider !== "openai" ||
