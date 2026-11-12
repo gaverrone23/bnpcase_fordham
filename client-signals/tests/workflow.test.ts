@@ -63,6 +63,28 @@ test('reviewed, deferred, dismissed and quiet-market signals do not fill the act
   assert.equal(quiet.report, null);
 });
 
+test('Northstar has relevant synthetic Singapore exposure but remains VERIFY, Harbor SUPPRESS', () => {
+  const northstar = byClient(INITIAL_OPPORTUNITIES, 'northstar-logistics');
+  const harbor = byClient(INITIAL_OPPORTUNITIES, 'harbor-components');
+  const linked = INITIAL_MARKET_DEVELOPMENTS.find(e => e.id === northstar.eventId);
+  assert.equal(northstar.eventId, 'MKT-2026-925');
+  assert.match(linked!.title, /Singapore/i);
+  assert.match(northstar.whyNow, /conflicting notes/i);
+  assert.equal(northstar.status, 'VERIFY_FIRST');
+  assert.equal(harbor.status, 'SUPPRESSED');
+  assert.equal(opportunitiesForTab('TOP_3_ACTIONABLE', INITIAL_OPPORTUNITIES).length, 3);
+  assert.equal(INITIAL_OPPORTUNITIES.find(o => o.clientId === 'apex-biotech')?.priorityRank, 2);
+});
+test('fictional sources are marked synthetic and demo information barrier is not a compliance claim', () => {
+  for (const source of INITIAL_MARKET_DEVELOPMENTS) {
+    assert.match(source.publisher, /Synthetic|Simulated/i);
+    assert.doesNotMatch(source.publisher, /Bloomberg|Reuters|Wall Street Journal|Financial Times|BNP Paribas/i);
+  }
+  const atlas = byClient(INITIAL_OPPORTUNITIES, 'atlas-mfg');
+  assert.match(atlas.auditTrail[0].note, /hypothetical restricted note/);
+  assert.match(atlas.auditTrail[0].note, /No real bank document/i);
+  assert.doesNotMatch(atlas.suggestedSpecialist?.specialistName || '', /Antoine Laurent/);
+});
 test('every seeded source reference resolves', () => {
   for (const o of INITIAL_OPPORTUNITIES) {
     assert.ok(INITIAL_CLIENTS.some(c => c.id === o.clientId));
