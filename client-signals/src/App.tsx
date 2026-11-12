@@ -549,6 +549,7 @@ export default function App() {
         onInspectClient={openSignals}
       />
       <AskClientSignalsDrawer
+        key={personaId}
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         selectedClient={selectedClient}
