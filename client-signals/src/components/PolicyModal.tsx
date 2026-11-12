@@ -43,7 +43,7 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose }) => 
             <div>
               <span className="font-semibold block">Illustrative Pre-Retrieval Authorization Gate</span>
               <p className="text-[11px] text-emerald-900 leading-relaxed mt-0.5">
-                The demonstration uses synthetic records and shows an example information-barrier exclusion in the audit trail. No restricted banking records are connected or processed. A production deployment would require bank-approved access controls, data classification, privacy and PII policies, and independent compliance validation before use.
+                The demonstration uses synthetic records and illustrates different client visibility and read/comment/edit permissions through selectable demo personas. These are NOT authenticated user identities or production security controls. An example information-barrier exclusion is included in the audit trail. No restricted banking records are connected or processed. A production deployment would require bank-approved access controls, data classification, privacy and PII policies, and independent compliance validation before use.
               </p>
             </div>
           </div>
