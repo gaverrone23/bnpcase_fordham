@@ -251,8 +251,8 @@ export default function App() {
     setEvents(INITIAL_MARKET_DEVELOPMENTS);
     setOpportunities(simulateMarket("NONE", INITIAL_OPPORTUNITIES).opportunities);
     setPrimaryView("SIGNALS");
-    setPortfolioClientId("atlas-mfg");
-    setSelectedOpportunityId("OPP-001-ATLAS");
+    setPortfolioClientId(visibleClients[0]?.id || "atlas-mfg");
+    setSelectedOpportunityId(visibleOpportunities[0]?.id || "");
     setActiveTab("TOP_3_ACTIONABLE");
     setActiveSimulation("NONE");
     setMarketReport(null);
@@ -307,8 +307,16 @@ export default function App() {
           <button
             aria-current={primaryView === "SIGNALS" ? "page" : undefined}
             onClick={() => {
-              if (primaryView === "PORTFOLIO") openSignals(portfolioClientId);
-              else setPrimaryView("SIGNALS");
+              if (primaryView === "PORTFOLIO") {
+                const hasSignal = visibleOpportunities.some(o => o.clientId === portfolioClientId);
+                if (hasSignal) openSignals(portfolioClientId);
+                else {
+                  const first = opportunitiesForTab("TOP_3_ACTIONABLE", visibleOpportunities)[0] || visibleOpportunities[0];
+                  setSelectedOpportunityId(first?.id || "");
+                  setActiveTab("ALL_PORTFOLIO");
+                  setPrimaryView("SIGNALS");
+                }
+              } else setPrimaryView("SIGNALS");
             }}
             className={`py-4 text-sm font-semibold border-b-2 ${primaryView === "SIGNALS" ? "border-emerald-700 text-emerald-900" : "border-transparent text-slate-500"}`}
           >
