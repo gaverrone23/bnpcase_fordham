@@ -37,7 +37,7 @@ export function MyPortfolio({
         <div className="mb-4">
           <h2 className="font-bold text-lg">My relationships</h2>
           <p className="text-sm text-slate-500 mt-1">
-            {clients.length} synthetic corporate clients · {opportunities.length} matched signals
+            {clients.length} corporate relationships · {opportunities.length} matched signals
           </p>
         </div>
         <label className="block text-xs text-slate-500 mb-2">
@@ -66,7 +66,7 @@ export function MyPortfolio({
       <section className="space-y-5 min-w-0" aria-label="Client portfolio">
         <div className="rounded-xl border border-slate-200 bg-white p-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-            Client relationship · Synthetic records
+            Client relationship · Corporate coverage
           </p>
           <h1 className="text-2xl font-bold mt-2">{client.name}</h1>
           <p className="mt-2 text-sm text-slate-600">
@@ -84,7 +84,8 @@ export function MyPortfolio({
                 {client.treasuryContact.name} · {client.treasuryContact.title}
               </p>
               <p className="text-slate-500 mt-1 break-all">
-                {client.treasuryContact.email} · Demo contact only
+                {client.treasuryContact.email}
+                {client.treasuryContact.phone && <span className="block mt-1">{client.treasuryContact.phone}</span>}
               </p>
             </div>
           </div>
@@ -96,8 +97,8 @@ export function MyPortfolio({
           </button>}
           {!opportunity && <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
             <strong>MONITOR · No qualified client-specific signal</strong>
-            <p className="mt-1 text-slate-600">{client.monitorReason || "No matching development is supported by the available demo evidence."}</p>
-            <p className="mt-2 text-xs text-slate-500">This is an evidence-coverage decision, not proof of no risk or no banking need.</p>
+            <p className="mt-1 text-slate-600">{client.monitorReason || "No qualifying development is supported by available client-specific evidence."}</p>
+            <p className="mt-2 text-xs text-slate-500">No matched signal does not imply the absence of banking needs or risk.</p>
           </div>}
         </div>
         {brief && <div className="grid xl:grid-cols-2 gap-5">

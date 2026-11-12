@@ -33,6 +33,7 @@ export interface ClientProfile {
     name: string;
     title: string;
     email: string;
+    phone?: string;
   };
   keySensitivities: string[];
   monitorReason?: string;

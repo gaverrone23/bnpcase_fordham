@@ -89,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-slate-300">·</span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3 text-slate-400" />
-                  07:30 EST Demo Snapshot
+                  07:30 EST Portfolio Snapshot
                 </span>
               </div>
             </div>
@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="hidden 2xl:flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700">
               <FileCheck2 className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Synthetic CRM &amp; Research</span>
+              <span>Evidence sources</span>
             </div>
 
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700">
@@ -114,10 +114,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenPolicyModal}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors border border-slate-200 cursor-pointer"
-              title="Inspect simulated bank policy rules"
+              title="Review data provenance and governance assumptions"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Simulated policy checks | Demo ruleset v1</span>
+              <span>Data governance</span>
             </button>
           </div>
 
@@ -243,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
 
                   <div className="px-3 pt-2 pb-1 border-t border-slate-100 text-[10px] text-slate-400 italic">
-                    All client records, news, and policies are synthetic demonstration inputs.
+                    Scenarios and records are illustrative; see Data & governance for details.
                   </div>
                 </div>
               )}

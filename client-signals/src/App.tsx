@@ -19,6 +19,7 @@ import { AskClientSignalsDrawer } from "./components/AskClientSignalsDrawer";
 import { MarketIntelligenceModal } from "./components/MarketIntelligenceModal";
 import { MyPortfolio } from "./components/MyPortfolio";
 import { ClientActionPlan } from "./components/ClientActionPlan";
+import { WorkspaceLogin } from "./components/WorkspaceLogin";
 import { applySignalEvidenceGate } from "./domain/signalEvidence";
 import { DEMO_PERSONAS, canDemoPermission, scopeDemoClients, type DemoPersonaId } from "./domain/demoAccess";
 import {
@@ -54,6 +55,7 @@ function readTasks(): InternalFollowUp[] {
 }
 
 export default function App() {
+  const [workspaceUnlocked,setWorkspaceUnlocked] = useState(false);
   const [personaId, setPersonaId] = useState<DemoPersonaId>("rm-primary");
   const persona = DEMO_PERSONAS[personaId];
   const visibleClients = scopeDemoClients(personaId);
@@ -274,6 +276,7 @@ export default function App() {
     onReview: (id: string) => recordDecision(id, "REVIEWED"),
   };
 
+  if (!workspaceUnlocked) return <WorkspaceLogin onSignIn={() => {setPersonaId("rm-primary");setWorkspaceUnlocked(true);}} />;
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       <Header
@@ -324,37 +327,28 @@ export default function App() {
           </button>
         </nav>
       </div>
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white">
-        <label className="text-xs font-semibold text-slate-700">Demo persona · simulated access
-          <select aria-label="Select demo persona" value={personaId}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+        <label className="font-semibold">Relationship manager
+          <select aria-label="Relationship manager" value={personaId}
             onChange={e => {
               const id = e.target.value as DemoPersonaId;
+              const accessible = scopeDemoClients(id);
               setPersonaId(id);
-              const first = scopeDemoClients(id)[0];
-              const visible = new Set(scopeDemoClients(id).map(c => c.id));
-              setPortfolioClientId(first.id);
-              setSelectedOpportunityId(opportunities.find(o => visible.has(o.clientId))?.id || "");
+              setPortfolioClientId(accessible[0].id);
+              setSelectedOpportunityId(opportunities.find(o=>accessible.some(c=>c.id===o.clientId))?.id || "");
               setPrimaryView("PORTFOLIO");
               setActiveTab("ALL_PORTFOLIO");
               setIsChatOpen(false);
-              setNotice("Demo persona switched. Client visibility and editable actions reflect the simulated role; this is not bank authentication.");
+              setNotice("");
             }}
-            className="ml-2 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm">
-            {Object.entries(DEMO_PERSONAS).map(([id, value]) => (
-              <option key={id} value={id}>{value.name} · {value.position} (Level {value.level})</option>
-            ))}
+            className="ml-2 rounded border border-slate-300 bg-white px-2 py-1.5 text-xs">
+            {Object.entries(DEMO_PERSONAS).map(([id,value])=><option key={id} value={id}>{value.name} · {value.position}</option>)}
           </select>
         </label>
-        <span className="text-xs text-slate-600">{visibleClients.length} visible of 25 synthetic accounts · Permissions: {persona.permissions.join(" / ")}</span>
-        <span className="text-xs font-medium text-amber-800">Illustrative entitlements, not secure login</span>
-      </div>
-      <div className="max-w-[1552px] mx-4 xl:mx-auto my-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex flex-wrap justify-between gap-2">
-        <span><strong>Demo data:</strong> clients, CRM records, signals and research are synthetic. <strong>Ask AI:</strong> can retrieve public web research on demand; it does not automatically refresh rankings.</span>
-        <button onClick={() => setIsPolicyModalOpen(true)} className="font-semibold underline text-emerald-900">Privacy &amp; governance details</button>
-        <span>
-          Decisions: this session · Follow-ups: this browser · No external
-          actions
-        </span>
+        <span className="text-slate-500">{visibleClients.length} covered accounts · {persona.permissions.join(" / ")} permissions</span>
+        <div className="flex-1"/>
+        <button onClick={()=>setIsPolicyModalOpen(true)} className="underline text-emerald-900">Data &amp; governance</button>
+        <button aria-label="Sign out" onClick={()=>{setIsWorkspaceUnlocked(false);setIsChatOpen(false);setPersonaId("rm-primary");}} className="rounded border border-slate-300 px-2 py-1 text-slate-700">Sign out</button>
       </div>
       {notice && (
         <div
@@ -380,7 +374,7 @@ export default function App() {
       {activeSimulation !== "NONE" && (
         <div className="max-w-[1552px] mx-4 xl:mx-auto mb-4 flex gap-4 items-center text-sm text-amber-900">
           <span>
-            Demo simulation active · {activeSimulation.replaceAll("_", " ")}
+            Scenario active · {activeSimulation.replaceAll("_", " ")}
           </span>
           <button
             onClick={() => runSimulation("NONE")}
