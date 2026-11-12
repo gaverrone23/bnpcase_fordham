@@ -134,80 +134,56 @@ test("unknown publication dates stay unknown; unsafe URLs do not become citation
   assert.equal(web.sources.length, 1);
   assert.equal(web.sources[0].publishedAt, null);
 });
-test("hard gates, undeclared clients, fabricated CRM citations and outdated FX math fail closed", () => {
-  const harbor = answer(
-    [
-      block("analysis", "Revive canceled project", {
-        clientIds: ["harbor-components"],
-        syntheticSourceIds: ["CRM-7702"],
+test("server derives workflow and client tags without accepting invalid evidence or unsafe gated advice", () => {
+  const valid = validateResearchAnswer(
+    answer([
+      block("analysis", "Atlas should be contacted before Apex because its equipment payment is near.", {
+        syntheticSourceIds: ["CRM-8812", "CRM-7901"],
       }),
-    ],
-    [{ clientId: "harbor-components", action: "ACT" }],
+    ]),
+    ctx, [], false, false,
   );
-  assert.throws(
-    () => validateResearchAnswer(harbor, ctx, [], false, false),
-    /withheld/,
+  assert.deepEqual(new Set(valid.blocks[0].clientIds), new Set(["atlas-mfg","apex-biotech"]));
+  assert.deepEqual(
+    new Set(valid.workflow.map((w) => w.clientId)),
+    new Set(["atlas-mfg", "apex-biotech"]),
   );
-  harbor.workflow[0].action = "SUPPRESS";
+  assert.equal(valid.workflow.find((w) => w.clientId === "atlas-mfg")?.action, "ACT");
+  assert.equal(valid.workflow.find((w) => w.clientId === "apex-biotech")?.action, "ACT");
+  const harbor = answer([
+    block("analysis", "Revive canceled project", {
+      clientIds: ["harbor-components"],
+      syntheticSourceIds: ["CRM-7702"],
+    }),
+  ], [{ clientId: "harbor-components", action: "ACT" }]);
   const guarded = validateResearchAnswer(harbor, ctx, [], false, false);
+  assert.equal(guarded.workflow[0].action, "SUPPRESS");
   assert.equal(guarded.blocks[0].kind, "workflow_rule");
   assert.ok(!guarded.blocks[0].text.includes("Revive canceled project"));
-  const northstar = answer(
-    [
-      block("analysis", "Pitch an uncertain expansion", {
-        clientIds: ["northstar-logistics"],
-      }),
-    ],
-    [{ clientId: "northstar-logistics", action: "VERIFY" }],
+  const missingTag = validateResearchAnswer(
+    answer([block("analysis", "Harbor should be contacted")]),
+    ctx, [], false, false,
   );
-  assert.match(
-    validateResearchAnswer(northstar, ctx, [], false, false).blocks[0].text,
-    /Derek Kowalski/,
-  );
-  assert.throws(
-    () =>
-      validateResearchAnswer(
-        answer([block("analysis", "Harbor should be contacted")]),
-        ctx,
-        [],
-        false,
-        false,
-      ),
-    /withheld/,
-  );
-  assert.throws(
-    () =>
-      validateResearchAnswer(
-        answer([
-          block("synthetic_evidence", "CRM fact", {
-            syntheticSourceIds: ["FAKE"],
-          }),
-        ]),
-        ctx,
-        [],
-        false,
-        false,
-      ),
-    /withheld/,
-  );
-  assert.throws(
-    () =>
-      validateResearchAnswer(
-        answer(
-          [
-            block("analysis", "Atlas moved 1.82%", {
-              clientIds: ["atlas-mfg"],
-            }),
-          ],
-          [{ clientId: "atlas-mfg", action: "ACT" }],
-        ),
-        ctx,
-        [],
-        false,
-        false,
-      ),
-    /withheld/,
-  );
+  assert.equal(missingTag.blocks[0].kind, "workflow_rule");
+  const northstar = answer([
+    block("analysis", "Pitch an uncertain expansion", {
+      clientIds: ["northstar-logistics"],
+    }),
+  ], [{ clientId: "northstar-logistics", action: "ACT" }]);
+  assert.equal(validateResearchAnswer(northstar, ctx, [], false, false).workflow[0].action, "VERIFY");
+  assert.match(validateResearchAnswer(northstar, ctx, [], false, false).blocks[0].text, /Derek Kowalski/);
+  assert.throws(() => validateResearchAnswer(
+    answer([block("synthetic_evidence", "CRM fact", { syntheticSourceIds: ["FAKE"] })]),
+    ctx, [], false, false,
+  ), /withheld/);
+  assert.throws(() => validateResearchAnswer(
+    answer([block("analysis", "CRM-9999 confirms an invented fact")]),
+    ctx, [], false, false,
+  ), /withheld/);
+  assert.throws(() => validateResearchAnswer(
+    answer([block("analysis", "Atlas moved 1.82%", { clientIds: ["atlas-mfg"] })]),
+    ctx, [], false, false,
+  ), /withheld/);
 });
 test("Responses request uses bounded documented tools/model and only server-held history", async () => {
   let body: any;
