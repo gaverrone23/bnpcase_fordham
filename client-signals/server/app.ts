@@ -14,6 +14,7 @@ export function createApiApp(options: {
   port: number;
   allowedOrigins?: string[];
   budgetFile: string;
+  judgeDemoUntil?: number;
   transport?: ResponsesTransport;
 }) {
   const app = express();
@@ -24,8 +25,8 @@ export function createApiApp(options: {
     `http://127.0.0.1:${port}`,
     ...(options.allowedOrigins || []).filter((s) => /^https:\/\//.test(s)),
   ]);
-  const access = new AccessControl(options.accessCode, allowedOrigins);
-  const budget = new DailyBudget(options.budgetFile);
+  const access = new AccessControl(options.accessCode, allowedOrigins, options.judgeDemoUntil);
+  const budget = new DailyBudget(options.budgetFile, 30);
   let concurrent = 0;
   app.disable("x-powered-by");
   app.set("trust proxy", false);
@@ -39,6 +40,7 @@ export function createApiApp(options: {
     provider: "openai",
     configured: Boolean(key),
     accessConfigured: access.configured,
+    guestDemoEnabled: Boolean(key) && access.judgeDemoEnabled,
     model: MODEL,
     reason: !key
       ? "OpenAI API key is not configured."
@@ -62,6 +64,16 @@ export function createApiApp(options: {
         throw new CopilotError(503, "OpenAI API key is not configured.");
       access.login(req, res, req.body?.code);
       res.json({ success: true, ...availability(), authenticated: true });
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.post("/api/copilot/guest", (req, res, next) => {
+    try {
+      if (!key)
+        throw new CopilotError(503, "OpenAI is not configured.");
+      access.guestLogin(req, res);
+      res.json({ success: true, ...availability(), authenticated: true, guest: true });
     } catch (e) {
       next(e);
     }
@@ -119,10 +131,10 @@ export function createApiApp(options: {
           409,
           "Wait for the current answer before sending another question.",
         );
-      if (session.turns >= 20)
+      if (session.turns >= (session.guest ? 4 : 20))
         throw new CopilotError(
           429,
-          "This session reached its 20-request budget. Starting a new conversation does not reset that budget.",
+          "This demo session reached its request budget. Starting a new conversation does not reset that budget.",
         );
       if (concurrent >= 2)
         throw new CopilotError(
