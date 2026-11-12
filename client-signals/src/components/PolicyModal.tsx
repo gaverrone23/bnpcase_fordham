@@ -41,16 +41,16 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose }) => 
           <div className="p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-start gap-2.5">
             <Lock className="w-4 h-4 text-emerald-800 shrink-0 mt-0.5" />
             <div>
-              <span className="font-semibold block">Pre-Retrieval Authorization Guarantee:</span>
+              <span className="font-semibold block">Illustrative Pre-Retrieval Authorization Gate</span>
               <p className="text-[11px] text-emerald-900 leading-relaxed mt-0.5">
-                Restricted advisory records, M&amp;A watchlists, and confidential trading desk documents are filtered out at data ingestion <em>before</em> any prompt or context reaches Gemini. Unauthorized documents never appear in the RM interface.
+                The demonstration uses synthetic records and shows an example information-barrier exclusion in the audit trail. No restricted banking records are connected or processed. A production deployment would require bank-approved access controls, data classification, privacy and PII policies, and independent compliance validation before use.
               </p>
             </div>
           </div>
 
           <div className="space-y-3 pt-2">
             <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
-              Enforced Policy Rules in Prototype
+              Simulated Policy Rules · Not Production Certification
             </h4>
 
             {SIMULATED_POLICY_RULES.map((rule) => (
@@ -65,7 +65,7 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose }) => 
                     </span>
                   </div>
                   <span className="font-mono text-[10px] text-slate-400">
-                    {rule.version} · Enforced
+                    {rule.version} · Demo rule
                   </span>
                 </div>
                 <p className="text-slate-600 leading-relaxed text-[11px]">
@@ -82,7 +82,7 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({ isOpen, onClose }) => 
             </p>
             <p className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Simulated integrations represent BNP Paribas CRM and Global Markets research feeds.</span>
+              <span>Simulated integrations represent hypothetical corporate CRM and authorized research feeds; no live BNP Paribas systems are connected.</span>
             </p>
           </div>
 

@@ -1,0 +1,28 @@
+name: Client Signals integration checks
+on:
+  push:
+    branches:
+      - feature/talbia-judge-fixes-integration
+  pull_request:
+    branches:
+      - feature/openai-research-copilot
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        working-directory: client-signals
+        run: npm install --include=dev --legacy-peer-deps --package-lock=false
+      - name: Typecheck
+        working-directory: client-signals
+        run: npm run lint
+      - name: Unit tests
+        working-directory: client-signals
+        run: npm test
+      - name: Production build
+        working-directory: client-signals
+        run: npm run build

@@ -47,7 +47,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 : activeTab === 'NEEDS_VERIFICATION'
                 ? 'Verification Required'
                 : activeTab === 'SUPPRESSED'
-                ? 'Excluded from outreach'
+                ? 'Hold off · Canceled thesis'
                 : 'All Portfolio Accounts'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -56,7 +56,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 : activeTab === 'NEEDS_VERIFICATION'
                 ? 'Conflicting or stale notes withheld from active outreach'
                 : activeTab === 'SUPPRESSED'
-                ? 'Canceled plans do not justify outreach'
+                ? 'Documented cancellations prevent inappropriate outreach'
                 : 'Complete corporate coverage portfolio'}
             </p>
           </div>
@@ -94,7 +94,7 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Muted ({countSuppressed})
+            Hold off ({countSuppressed})
           </button>
 
           <button
@@ -212,10 +212,11 @@ export const PriorityList: React.FC<PriorityListProps> = ({
                 </div>
 
                 {/* "Why Now" Kicker */}
-                <p className="text-xs text-slate-600 break-words leading-relaxed bg-white/70 p-2 rounded border border-slate-100 mb-2">
+                <div className="text-xs text-slate-600 break-words leading-relaxed bg-white/70 p-2 rounded border border-slate-100 mb-2 max-h-24 overflow-y-auto overscroll-contain"
+                  tabIndex={0} role="region" aria-label={`Full Why Now rationale for ${client?.name}`}>
                   <strong className="text-slate-800 font-semibold">Why Now: </strong>
                   {opp.whyNow}
-                </p>
+                </div>
 
                 {/* Explainable Factor Pills (No black-box scores) */}
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500 pt-1 border-t border-slate-100/80">
@@ -239,7 +240,9 @@ export const PriorityList: React.FC<PriorityListProps> = ({
           <Sparkles className="w-3 h-3 text-emerald-700" />
           Evidence rules applied
         </span>
-        <span className="font-mono tabular-nums">5 Clients Evaluated</span>
+        <span className="font-mono tabular-nums text-right leading-tight">5 clients · 3 surfaced · 1 verify · 1 hold off
+          <span className="block text-slate-400">Information-barrier gate: simulated demo audit</span>
+        </span>
       </div>
 
     </div>

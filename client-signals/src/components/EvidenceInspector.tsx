@@ -221,7 +221,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             </div>
             <p className="text-sm leading-relaxed text-amber-950">
               {client.id === 'northstar-logistics'
-                ? 'CRM-6502 (June 12, 2026): former VP Alan Miller described Southeast Asian expansion and treasury needs. CRM-7210 (September 28, 2026): Finance Director Derek Kowalski reported a board pause on Asian capex. It is not established that the earlier plans remain active, whether the pause is temporary or permanent, or whether a treasury need survives it. The Mexico tariff event does not establish a direct connection to these Asian plans.'
+                ? 'CRM-6502 (June 12, 2026): former VP Alan Miller described Southeast Asian expansion and treasury needs. CRM-7210 (September 28, 2026): Finance Director Derek Kowalski reported a board pause on Asian capex. It is not established that the earlier plans remain active, whether the pause is temporary or permanent, or whether a treasury need survives it. The synthetic Singapore FX/port disruption matches the historical Asian corridor thesis, but conflicting notes prevent outreach until the current plans and treasury needs are verified.'
                 : 'The banker has requested confirmation of this client’s current exposure and terms. This suggestion stays outside the actionable queue until verification; no outreach is approved.'}
             </p>
           </div>
@@ -299,13 +299,13 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
                   </div>
 
                   <div className="p-2.5 bg-white rounded border border-blue-200 text-slate-700 space-y-1">
-                    <div className="flex items-center justify-between font-mono text-[11px]">
+                    <div className="flex items-center justify-between font-mono text-[11px] gap-2 flex-wrap">
                       <span>Variance Formula:</span>
                       <span className="font-bold text-slate-900">€12,325,000 × (1.1085 − 1.0820) = +${atlasIncrementalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</span>
                     </div>
-                    <div className="flex items-center justify-between font-mono text-[11px] text-rose-800">
+                    <div className="flex items-center justify-between font-mono text-[11px] text-rose-800 gap-2 flex-wrap">
                       <span>Hypothetical stress case (1.1150 / +330 pips):</span>
-                      <span className="font-bold">€12,325,000 × (1.1150 - 1.0820) = +$406,725.00 USD</span>
+                      <span className="font-bold">€12,325,000 × (1.1150 − 1.0820) = +$406,725.00 USD</span>
                     </div>
                   </div>
                 </div>
