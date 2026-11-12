@@ -4,6 +4,8 @@ import { AccessControl, DailyBudget } from "./access";
 import {
   callOpenAI,
   CopilotError,
+  isClearlyOutOfScope,
+  OUT_OF_SCOPE_REPLY,
   MODEL,
   type ResponsesTransport,
 } from "./research";
@@ -130,6 +132,10 @@ export function createApiApp(options: {
           typeof req.body.research !== "boolean")
       )
         throw new CopilotError(400, "Enter a question of 1–4000 characters.");
+      // Unambiguously unrelated queries are rejected before rate/budget
+      // admission and before any paid model or web-search call.
+      if (isClearlyOutOfScope(message))
+        throw new CopilotError(422, OUT_OF_SCOPE_REPLY);
       if (session.busy)
         throw new CopilotError(
           409,
