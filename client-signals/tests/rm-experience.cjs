@@ -264,7 +264,7 @@ fs.mkdirSync(output, { recursive: true });
 
     for (const [tab, name, gate] of [
       ["Verify (1)", "Northstar Regional Distribution", "VERIFY"],
-      ["Muted (1)", "Harbor Automotive Components", "SUPPRESS"],
+      ["Hold off (1)", "Harbor Automotive Components", "SUPPRESS"],
     ]) {
       await page.getByRole("button", { name: tab, exact: true }).click();
       await inspector()
