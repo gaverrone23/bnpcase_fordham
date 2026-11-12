@@ -41,6 +41,7 @@ interface EvidenceInspectorProps {
   onOpenDismissModal: (id: string) => void;
   actionPlan: React.ReactNode;
   onOpenPortfolio: () => void;
+  canEdit?: boolean;
 }
 
 export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
@@ -55,6 +56,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
   onOpenDismissModal,
   actionPlan,
   onOpenPortfolio,
+  canEdit = true,
 }) => {
   const [activeTab, setActiveTab] = useState<'EVIDENCE' | 'CLIENT_PROFILE' | 'AUDIT_LOG'>('EVIDENCE');
 
@@ -599,7 +601,7 @@ export const EvidenceInspector: React.FC<EvidenceInspectorProps> = ({
             <button
               onClick={() => onMarkReviewed(opportunity.id)}
               className="px-4 py-2 text-xs font-semibold text-white bg-emerald-800 hover:bg-emerald-900 rounded transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-              disabled={!canAct}
+              disabled={!canEdit || !canAct}
               title={canAct ? "Record internal review; no outreach sent" : "Unavailable: verify evidence or retain suppression before outreach"}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
