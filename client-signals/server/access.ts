@@ -25,6 +25,7 @@ export interface Session {
   busy: boolean;
   history: Turn[];
   sources: WebSource[];
+  guest?: boolean;
 }
 export class AttemptLimiter {
   private buckets = new Map<string, { start: number; count: number }>();
@@ -51,10 +52,15 @@ export class AccessControl {
   private loginLimit = new AttemptLimiter(8, 15 * 60 * 1000);
   private loginGlobal = new AttemptLimiter(60, 15 * 60 * 1000);
   readonly chatLimit = new AttemptLimiter(6, 60 * 1000);
+  private guestSessionLimit = new AttemptLimiter(30, 24 * 60 * 60 * 1000);
   constructor(
     private code: string | undefined,
     private allowedOrigins: Set<string>,
+    private guestUntil?: number,
   ) {}
+  get judgeDemoEnabled() {
+    return Boolean(this.configured && this.guestUntil && Date.now() < this.guestUntil);
+  }
   get configured() {
     return Boolean(
       this.code && this.code.length >= 16 && this.code.length <= 200,
@@ -128,6 +134,41 @@ export class AccessControl {
       sameSite: "strict",
       secure,
       maxAge: 4 * 60 * 60 * 1000,
+      path: "/api",
+    });
+  }
+  guestLogin(req: Request, res: Response) {
+    this.checkOrigin(req);
+    if (!this.judgeDemoEnabled)
+      throw new CopilotError(403, "Public judge demo access is disabled or expired.");
+    // One guest session per browser, with no API request consumed at unlock.
+    const previous = this.get(req);
+    if (previous) return;
+    if (!this.guestSessionLimit.allow("all"))
+      throw new CopilotError(429, "Guest demo session capacity reached.");
+    if (this.sessions.size >= 100)
+      throw new CopilotError(503, "Demo session capacity reached.");
+    const id = randomBytes(32).toString("hex");
+    const maxAge = Math.min(
+      30 * 60 * 1000,
+      Math.max(0, this.guestUntil! - Date.now()),
+    );
+    if (maxAge <= 0)
+      throw new CopilotError(403, "Judge demo access has expired.");
+    this.sessions.set(id, {
+      id,
+      expires: Date.now() + maxAge,
+      turns: 0,
+      busy: false,
+      history: [],
+      sources: [],
+      guest: true,
+    });
+    res.cookie("cs_copilot", id, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: true,
+      maxAge,
       path: "/api",
     });
   }
