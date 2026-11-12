@@ -1,5 +1,52 @@
 import { ClientProfile, CRMNote, MarketDevelopment, SignalOpportunity, PolicyRule } from '../types';
 
+// Lightweight coverage accounts. No matching event, actionable exposure, or
+// supporting CRM note exists for these clients in the synthetic snapshot.
+// This is NOT a claim that the companies have no risks or banking needs.
+const COVERAGE_ACCOUNTS = [
+  ["cobalt-packaging", "Cobalt Packaging Group", "Packaging", "Corrugated Materials", "$155M USD", "Pittsburgh, PA", "No dated client-specific exposure to the included FX, SOFR, Asian logistics, or Mexico expansion events is documented."],
+  ["evergreen-foods", "Evergreen Food Processing", "Food & Agriculture", "Processed Foods", "$172M USD", "Rochester, NY", "Sector cost changes alone do not establish a client-specific treasury need without a supporting CRM record."],
+  ["silverline-medical", "Silverline Medical Supplies", "Healthcare Distribution", "Medical Supply Logistics", "$128M USD", "Hartford, CT", "No validated borrowing reset or near-term capital payment is documented in this snapshot."],
+  ["granite-building", "Granite Building Products", "Building Materials", "Prefabricated Components", "$205M USD", "Albany, NY", "General construction news has no documented link to this client's current financing decisions."],
+  ["oakwood-furniture", "Oakwood Commercial Furnishings", "Manufacturing", "Office Furniture", "$88M USD", "Buffalo, NY", "No confirmed EUR-denominated unpaid equipment obligation is present in the provided records."],
+  ["solstice-energy", "Solstice Industrial Energy", "Energy Services", "Industrial Maintenance", "$260M USD", "Providence, RI", "No current maturity or energy-price exposure has been verified in client-specific evidence."],
+  ["bluewater-chemicals", "Bluewater Specialty Chemicals", "Chemicals", "Coatings", "$190M USD", "Philadelphia, PA", "Possible input-cost sensitivity is not an outreach trigger without an evidenced commercial need."],
+  ["cedar-education", "Cedar Learning Technologies", "Technology", "Education Software", "$116M USD", "New Haven, CT", "No supported link to the synthetic events has been established for this client's operations."],
+  ["redwood-textiles", "Redwood Technical Textiles", "Industrial Textiles", "Advanced Fabrics", "$97M USD", "Wilmington, DE", "No company-specific imports, invoice currency or hedge requirements are documented."],
+  ["seabrook-marine", "Seabrook Marine Equipment", "Marine Equipment", "Vessel Components", "$148M USD", "Portland, ME", "A port headline alone is insufficient evidence of a direct client exposure or decision deadline."],
+  ["lumen-electronics", "Lumen Components Group", "Electronics", "Industrial Sensors", "$215M USD", "Jersey City, NJ", "The supplied scenario has no verified link to a current purchase, payment or client instruction."],
+  ["hillcrest-services", "Hillcrest Facilities Services", "Business Services", "Property Operations", "$108M USD", "White Plains, NY", "No near-term refinancing or client-confirmed action is documented for this synthetic account."],
+  ["pioneer-robotics", "Pioneer Industrial Robotics", "Advanced Manufacturing", "Automation Systems", "$245M USD", "Cincinnati, OH", "Technology-sector relevance does not establish an outstanding foreign-currency equipment invoice."],
+  ["riverside-pharma", "Riverside Pharma Packaging", "Life Sciences", "Pharmaceutical Packaging", "$139M USD", "Trenton, NJ", "No documented SOFR-linked facility reset or capital expenditure decision is available."],
+  ["summit-coldchain", "Summit Cold Chain Partners", "Transportation & Logistics", "Refrigerated Warehousing", "$182M USD", "Columbus, OH", "Supply-chain headlines do not justify outreach without a documented affected route or facility."],
+  ["maple-industrial", "Maple Industrial Parts", "Industrial Distribution", "Replacement Parts", "$124M USD", "Dayton, OH", "No active matched signal with supported client-specific financial impact is in this demo snapshot."],
+  ["windward-apparel", "Windward Workwear Company", "Apparel", "Protective Workwear", "$91M USD", "Baltimore, MD", "Broad tariff exposure is unverified; no company-specific shipment or payment data has been supplied."],
+  ["clearpath-waste", "Clearpath Environmental Services", "Environmental Services", "Waste Logistics", "$231M USD", "Harrisburg, PA", "No cited near-term regulatory deadline or corresponding client workstream is documented."],
+  ["terra-agritech", "Terra Agricultural Technology", "Agricultural Equipment", "Farm Technology", "$164M USD", "Lancaster, PA", "A possible sector-level rate effect is not equivalent to an evidenced financing reset."],
+  ["altitude-cloud", "Altitude Enterprise Systems", "Technology", "Cloud Infrastructure", "$278M USD", "Princeton, NJ", "No documented client treasury decision or supported link to a current synthetic event exists."],
+] as const;
+
+export const MONITORED_CLIENTS: ClientProfile[] = COVERAGE_ACCOUNTS.map(
+  ([id, name, sector, subSector, annualRevenue, headquarters, monitorReason], index) => ({
+    id,
+    name,
+    sector,
+    subSector,
+    annualRevenue,
+    headquarters,
+    rmName: "Gabriel V. (Primary Coverage RM, Demo)",
+    coverageGroup: "Mid-Market Corporate Coverage",
+    relationshipTier: index % 3 === 0 ? "Tier 2 Growth Client" : "Tier 3 Monitored Relationship",
+    treasuryContact: {
+      name: "Not supplied in demo",
+      title: "Contact to be verified",
+      email: "unavailable@example.com",
+    },
+    keySensitivities: ["Sector context only; no documented actionable client exposure"],
+    monitorReason,
+  }),
+);
+
 export const INITIAL_CLIENTS: ClientProfile[] = [
   {
     id: 'atlas-mfg',
@@ -15,7 +62,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     treasuryContact: {
       name: 'Claire Vance',
       title: 'VP Finance & Corporate Treasurer',
-      email: 'c.vance@atlasmfg-corp.com',
+      email: 'c.vance@client-signals.example',
     },
     keySensitivities: ['EUR/USD FX fluctuations', 'Capital equipment financing', 'German supply imports'],
   },
@@ -33,7 +80,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     treasuryContact: {
       name: 'Marcus Thorne',
       title: 'Chief Financial Officer',
-      email: 'm.thorne@apexbiotech-inst.com',
+      email: 'm.thorne@client-signals.example',
     },
     keySensitivities: ['SOFR floating interest rate risk', 'Credit line refinancing', 'Working capital debt'],
   },
@@ -51,7 +98,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     treasuryContact: {
       name: 'Evelyn Zhao',
       title: 'Group Treasurer',
-      email: 'e.zhao@meridianfreight.net',
+      email: 'e.zhao@client-signals.example',
     },
     keySensitivities: ['Cross-border cash pooling', 'European regulatory capital', 'Port infrastructure fees'],
   },
@@ -69,7 +116,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     treasuryContact: {
       name: 'Derek Kowalski',
       title: 'Finance Director',
-      email: 'dkowalski@northstar-dist.com',
+      email: 'dkowalski@client-signals.example',
     },
     keySensitivities: ['Fuel surcharges', 'Asian cross-border payment expansion (Uncertain)', 'Liquidity buffers'],
   },
@@ -87,10 +134,11 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     treasuryContact: {
       name: 'Richard Alvarez',
       title: 'CFO & Treasurer',
-      email: 'ralvarez@harborcomponents.com',
+      email: 'ralvarez@client-signals.example',
     },
     keySensitivities: ['USMCA border rules', 'Domestic steel pricing', 'Re-tooling credit'],
   },
+  ...MONITORED_CLIENTS,
 ];
 
 export const INITIAL_CRM_NOTES: CRMNote[] = [
