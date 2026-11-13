@@ -36,7 +36,7 @@ export const MONITORED_CLIENTS: ClientProfile[] = COVERAGE_ACCOUNTS.map(
     subSector,
     annualRevenue,
     headquarters,
-    rmName: "Gabriel V. (Senior RM, Industrials)",
+    rmName: "Sydney V. (Senior RM, Industrials)",
     coverageGroup: "Mid-Market Corporate Coverage",
     relationshipTier: index % 3 === 0 ? "Tier 2 Growth Client" : "Tier 3 Monitored Relationship",
     treasuryContact: {
@@ -59,7 +59,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     subSector: 'Heavy Tooling & Precision CNC',
     annualRevenue: '$185M USD',
     headquarters: 'Cleveland, OH',
-    rmName: 'Gabriel V. (Senior RM, Industrials)',
+    rmName: 'Sydney V. (Senior RM, Industrials)',
     coverageGroup: 'Great Lakes Corporate Banking',
     relationshipTier: 'Tier 1 Core Relationship',
     treasuryContact: {
@@ -78,7 +78,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     subSector: 'Clinical Diagnostic Equipment',
     annualRevenue: '$240M USD',
     headquarters: 'Boston, MA',
-    rmName: 'Gabriel V. (Senior RM, Industrials)',
+    rmName: 'Sydney V. (Senior RM, Industrials)',
     coverageGroup: 'Northeast Corporate Banking',
     relationshipTier: 'Tier 1 Core Relationship',
     treasuryContact: {
@@ -97,7 +97,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     subSector: 'Intermodal Cold-Chain Forwarding',
     annualRevenue: '$310M USD',
     headquarters: 'Newark, NJ',
-    rmName: 'Gabriel V. (Senior RM, Industrials)',
+    rmName: 'Sydney V. (Senior RM, Industrials)',
     coverageGroup: 'Atlantic Logistics & Infra',
     relationshipTier: 'Tier 2 Growth Client',
     treasuryContact: {
@@ -116,7 +116,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     subSector: 'Domestic Mid-Continent Freight',
     annualRevenue: '$95M USD',
     headquarters: 'Chicago, IL',
-    rmName: 'Gabriel V. (Senior RM, Industrials)',
+    rmName: 'Sydney V. (Senior RM, Industrials)',
     coverageGroup: 'Midwest Corporate Banking',
     relationshipTier: 'Tier 3 Emerging',
     treasuryContact: {
@@ -135,7 +135,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     subSector: 'Tier-2 EV & Powertrain Components',
     annualRevenue: '$140M USD',
     headquarters: 'Detroit, MI',
-    rmName: 'Gabriel V. (Senior RM, Industrials)',
+    rmName: 'Sydney V. (Senior RM, Industrials)',
     coverageGroup: 'Midwest Automotive Group',
     relationshipTier: 'Tier 2 Core Supplier',
     treasuryContact: {
@@ -154,7 +154,7 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
   {
     id: 'CRM-8812',
     clientId: 'atlas-mfg',
-    authorName: 'Gabriel V.',
+    authorName: 'Sydney V.',
     authorRole: 'Relationship Manager',
     date: '2026-10-14',
     title: 'Capex Review: Stuttgarter CNC Tooling Order Signed',
@@ -166,7 +166,7 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
   {
     id: 'CRM-8420',
     clientId: 'atlas-mfg',
-    authorName: 'Gabriel V.',
+    authorName: 'Sydney V.',
     authorRole: 'Relationship Manager',
     date: '2026-08-05',
     title: 'Semi-Annual Banking Facility & Line Review',
@@ -180,7 +180,7 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
   {
     id: 'CRM-7901',
     clientId: 'apex-biotech',
-    authorName: 'Gabriel V.',
+    authorName: 'Sydney V.',
     authorRole: 'Relationship Manager',
     date: '2026-10-22',
     title: 'Debt Strategy: $35M Syndicated Term Loan Rollover',
@@ -194,7 +194,7 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
   {
     id: 'CRM-8115',
     clientId: 'meridian-freight',
-    authorName: 'Gabriel V.',
+    authorName: 'Sydney V.',
     authorRole: 'Relationship Manager',
     date: '2026-10-18',
     title: 'Rotterdam Terminal Expansion & Cash Sweep RFP',
@@ -221,7 +221,7 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
   {
     id: 'CRM-7210',
     clientId: 'northstar-logistics',
-    authorName: 'Gabriel V.',
+    authorName: 'Sydney V.',
     authorRole: 'Relationship Manager',
     date: '2026-09-28',
     title: 'Audit & Governance Check: Asian Expansion on Hold',
@@ -236,7 +236,7 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
   {
     id: 'CRM-6910',
     clientId: 'harbor-components',
-    authorName: 'Gabriel V.',
+    authorName: 'Sydney V.',
     authorRole: 'Relationship Manager',
     date: '2025-09-15',
     title: 'Strategic Planning: Feasibility of Monterrey Sourcing Hub',
@@ -250,7 +250,7 @@ export const INITIAL_CRM_NOTES: CRMNote[] = [
   {
     id: 'CRM-7702',
     clientId: 'harbor-components',
-    authorName: 'Gabriel V.',
+    authorName: 'Sydney V.',
     authorRole: 'Relationship Manager',
     date: '2025-11-14',
     title: 'Executive Update: Project Nearshore Formally Canceled',
